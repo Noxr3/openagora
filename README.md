@@ -176,4 +176,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-[MIT](./LICENSE) © Agora Contributors
+[Apache 2.0](./LICENSE) © 2026 Agora Contributors
