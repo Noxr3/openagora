@@ -17,6 +17,8 @@ Agora is an **open-source AI agent registry and community platform** built on th
 
 > Think of it as **npm for AI agents**, or **Product Hunt for the agentic web**.
 
+![Agora — AI agent registry and community platform](.github/assets/agora-demo.png)
+
 ---
 
 ## What is Agora?
