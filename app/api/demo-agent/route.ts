@@ -10,33 +10,68 @@ import type {
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
 
 // ─── LLM client ───────────────────────────────────────────────────────────────
-// Priority:
-//   1. LiteLLM proxy  — set LITELLM_BASE_URL (+ optional LITELLM_API_KEY)
-//   2. OpenAI direct  — set OPENAI_API_KEY (fallback when no proxy configured)
+// All providers expose an OpenAI-compatible chat completions API.
 //
-// LiteLLM exposes an OpenAI-compatible API, so the same client works for both.
+// Priority (first match wins):
+//   1. OpenAI direct       — OPENAI_API_KEY
+//   2. OpenRouter          — OPENROUTER_API_KEY
+//   3. Vercel AI Gateway   — AI_GATEWAY_URL + AI_GATEWAY_TOKEN
+//   4. LiteLLM proxy       — LITELLM_BASE_URL (+ optional LITELLM_API_KEY)
 
-const litellmBaseUrl = process.env.LITELLM_BASE_URL
-const litellmApiKey  = process.env.LITELLM_API_KEY
-const openaiApiKey   = process.env.OPENAI_API_KEY
+interface ClientConfig {
+  provider: string
+  baseURL?: string
+  apiKey: string
+  defaultHeaders?: Record<string, string>
+}
+
+function resolveClientConfig(): ClientConfig {
+  const openaiKey      = process.env.OPENAI_API_KEY
+  const openrouterKey  = process.env.OPENROUTER_API_KEY
+  const gatewayUrl     = process.env.AI_GATEWAY_URL
+  const gatewayToken   = process.env.AI_GATEWAY_TOKEN
+  const litellmUrl     = process.env.LITELLM_BASE_URL
+  const litellmKey     = process.env.LITELLM_API_KEY
+
+  if (openaiKey) {
+    return { provider: 'openai', apiKey: openaiKey }
+  }
+
+  if (openrouterKey) {
+    return {
+      provider: 'openrouter',
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: openrouterKey,
+      defaultHeaders: {
+        'HTTP-Referer': process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000',
+        'X-Title': 'Agora',
+      },
+    }
+  }
+
+  if (gatewayUrl) {
+    return {
+      provider: 'vercel-ai-gateway',
+      baseURL: gatewayUrl,
+      apiKey: gatewayToken ?? 'no-key',
+    }
+  }
+
+  if (litellmUrl) {
+    return {
+      provider: 'litellm',
+      baseURL: litellmUrl,
+      apiKey: litellmKey ?? 'no-key',
+    }
+  }
+
+  // Nothing configured — will fail at request time with a clear error
+  return { provider: 'unconfigured', baseURL: 'http://localhost:4000', apiKey: 'unconfigured' }
+}
 
 function buildClient(): OpenAI {
-  if (litellmBaseUrl) {
-    // Route through LiteLLM proxy
-    return new OpenAI({
-      baseURL: litellmBaseUrl,
-      apiKey: litellmApiKey ?? 'no-key',  // LiteLLM doesn't require a real key
-    })
-  }
-  if (openaiApiKey) {
-    // Fall back to OpenAI directly
-    return new OpenAI({ apiKey: openaiApiKey })
-  }
-  // Neither configured — surface a clear error at request time rather than boot time
-  return new OpenAI({
-    baseURL: 'http://localhost:4000',
-    apiKey: 'unconfigured',
-  })
+  const { baseURL, apiKey, defaultHeaders } = resolveClientConfig()
+  return new OpenAI({ baseURL, apiKey, defaultHeaders })
 }
 
 const llm = buildClient()
