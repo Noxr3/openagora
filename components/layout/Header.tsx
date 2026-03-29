@@ -8,11 +8,11 @@ const nav = [
 ]
 
 /**
- * Agora gate mark — a solid civic arch/door shape.
+ * OpenAgora gate mark — a solid civic arch/door shape.
  * Single path: rectangle base + semicircular arch crown.
  * No cutout. Center x=14, arch radius=11, base y=28.
  */
-function AgoraIcon() {
+function OpenAgoraIcon() {
   return (
     <svg
       width="28"
@@ -34,9 +34,9 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-background/90 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2.5">
-          <AgoraIcon />
+          <OpenAgoraIcon />
           <span className="font-[family-name:var(--font-instrument-serif)] text-2xl tracking-tight">
-            Agora
+            OpenAgora
           </span>
           <span className="font-[family-name:var(--font-instrument-serif)] text-2xl text-primary -ml-1.5">.</span>
         </Link>

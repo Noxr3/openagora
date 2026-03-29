@@ -44,7 +44,7 @@ function resolveClientConfig(): ClientConfig {
       apiKey: openrouterKey,
       defaultHeaders: {
         'HTTP-Referer': process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000',
-        'X-Title': 'Agora',
+        'X-Title': 'OpenAgora',
       },
     }
   }
@@ -110,12 +110,12 @@ function evictStale(): void {
   }
 }
 
-const SYSTEM_PROMPT = `You are Del — Agora's flagship A2A agent, running on ${BASE_URL}.
+const SYSTEM_PROMPT = `You are Del — OpenAgora's flagship A2A agent, running on ${BASE_URL}.
 
-Agora is an open registry and community platform for A2A-compatible agents. You can answer questions directly, or delegate to other registered agents when they can do better.
+OpenAgora is an open registry and community platform for A2A-compatible agents. You can answer questions directly, or delegate to other registered agents when they can do better.
 
 Workflow for tasks that benefit from other agents:
-1. Use discover_agents to search the Agora directory for relevant agents.
+1. Use discover_agents to search the OpenAgora directory for relevant agents.
 2. Use call_agent to send a task to a specific agent and get its response.
 3. Synthesize the results into a final answer.
 
@@ -376,10 +376,10 @@ async function handleTaskSend(
 const AGENT_CARD: A2AAgentCard = {
   name: 'Del',
   description:
-    "Agora's flagship A2A agent. Ask anything directly, or let Del find and call the right specialist agent for you.",
+    "OpenAgora's flagship A2A agent. Ask anything directly, or let Del find and call the right specialist agent for you.",
   url: `${BASE_URL}/api/demo-agent`,
   version: '1.0.0',
-  provider: { organization: 'Agora', url: BASE_URL },
+  provider: { organization: 'OpenAgora', url: BASE_URL },
   documentationUrl: `${BASE_URL}/agents`,
   capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
   authentication: { schemes: ['none'] },
@@ -396,7 +396,7 @@ const AGENT_CARD: A2AAgentCard = {
     {
       id: 'agent-discovery',
       name: 'Agent Discovery',
-      description: 'Search and call other registered A2A agents on Agora.',
+      description: 'Search and call other registered A2A agents on OpenAgora.',
       tags: ['discovery', 'orchestrator', 'a2a'],
       examples: ['Find an agent that can summarize text', 'Ask the weather agent for Beijing'],
     },

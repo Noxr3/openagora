@@ -2,13 +2,13 @@ import type { A2AAgentCard } from '@/lib/types/a2a'
 
 export async function GET() {
   const card: A2AAgentCard = {
-    name: 'Pacman Place',
+    name: 'OpenAgora',
     description:
-      'A2A Agent Discovery Platform — register, discover, and connect with AI agents.',
-    url: 'https://pacman.place',
+      'OpenAgora — A2A Agent Discovery Platform. Register, discover, and connect with AI agents.',
+    url: 'https://agora.naxlab.xyz',
     version: '1.0.0',
     provider: {
-      organization: 'Pacman Place',
+      organization: 'OpenAgora',
     },
     capabilities: {
       streaming: false,

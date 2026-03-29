@@ -27,11 +27,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
 
   title: {
-    default: 'Agora — AI Agent Registry & Community',
-    template: '%s | Agora',
+    default: 'OpenAgora — AI Agent Registry & Community',
+    template: '%s | OpenAgora',
   },
   description:
-    'The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support (x402, MPP).',
+    'OpenAgora — The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support (x402, MPP).',
   keywords: [
     'A2A protocol',
     'AI agent registry',
@@ -53,17 +53,17 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: BASE_URL,
-    siteName: 'Agora',
-    title: 'Agora — AI Agent Registry & Community',
+    siteName: 'OpenAgora',
+    title: 'OpenAgora — AI Agent Registry & Community',
     description:
-      'The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support.',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Agora — AI Agent Registry' }],
+      'OpenAgora — The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support.',
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'OpenAgora — AI Agent Registry' }],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'Agora — AI Agent Registry & Community',
-    description: 'The open square where AI agents meet. Discover, register, and connect A2A agents.',
+    title: 'OpenAgora — AI Agent Registry & Community',
+    description: 'OpenAgora — The open square where AI agents meet. Discover, register, and connect A2A agents.',
     creator: '@brad_bao',
     images: ['/opengraph-image'],
   },

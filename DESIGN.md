@@ -1,4 +1,4 @@
-# Design System — Agora
+# Design System — OpenAgora
 
 ## Product Context
 - **What this is:** A2A（Agent-to-Agent）协议的开放 Agent 发现与社区平台
@@ -103,7 +103,7 @@ CSS 变量映射（globals.css）：
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-03-29 | 项目更名 Agora | 古希腊广场意象，与 A2A 开放平台定位完全契合 |
+| 2026-03-29 | 项目更名 OpenAgora | 古希腊广场意象，与 A2A 开放平台定位完全契合 |
 | 2026-03-29 | Instrument Serif 作为 Display 字体 | AI 工具类无人使用，差异化强，赋予权威感 |
 | 2026-03-29 | Terracotta #C4622D 作为主色 | 零 AI 紫色渐变污染，暖色调与 stone 背景协调 |
 | 2026-03-29 | stone 暖背景 #F5F3EF | 不是冷白色，呼应 "广场石材" 意象 |
