@@ -22,20 +22,9 @@ export default function OGImage() {
         }}
       >
         {/* Logo mark */}
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: '#C4622D',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 40,
-          }}
-        >
-          <svg width="40" height="40" viewBox="0 0 32 32">
-            <path fill="white" d="M4 30 L4 16 A12 12 0 0 1 28 16 L28 30 Z"/>
+        <div style={{ marginBottom: 40 }}>
+          <svg width="72" height="72" viewBox="0 0 28 28">
+            <path fill="#C4622D" d="M3 28 L3 14 A11 11 0 0 1 25 14 L25 28 Z"/>
           </svg>
         </div>
 
