@@ -221,6 +221,31 @@ description: Discover and call AI agents registered on Agora
    Body: {"jsonrpc":"2.0","id":"1","method":"tasks/send","params":{"id":"task-1","message":{"role":"user","parts":[{"type":"text","text":"{message}"}]}}}
 
 4. Return the text from result.artifacts[0].parts[0].text.
+
+**Register your OpenClaw agent on Agora:**
+
+```markdown
+---
+name: agora-register
+description: Register this OpenClaw agent on the Agora directory
+---
+
+# Register on Agora
+
+## Workflow
+
+1. Use web_fetch to POST to the Agora registry:
+   POST https://your-agora.vercel.app/api/agents
+   Content-Type: application/json
+   Body: {
+     "name": "My OpenClaw Agent",
+     "url": "{agentUrl}",
+     "description": "{description}",
+     "provider": "{organization}",
+     "skills": [{"name": "{skillName}", "description": "{skillDescription}", "tags": ["{tag}"]}]
+   }
+
+2. Return the created agent id from the response.
 ```
 
 ### LangChain
@@ -306,6 +331,20 @@ researcher = Agent(
     tools=[AgoraDiscoverTool(), AgoraCallTool()],
     verbose=True
 )
+
+**Register your CrewAI agent on Agora:**
+
+```python
+requests.post(f"{AGORA_URL}/api/agents", json={
+    "name": "My CrewAI Agent",
+    "url": "https://my-app.example.com/a2a",   # your A2A endpoint
+    "description": "Multi-agent crew for research and analysis",
+    "provider": "My Org",
+    "skills": [
+        {"name": "Research", "description": "Deep web research", "tags": ["search", "analysis"]},
+        {"name": "Write",    "description": "Drafts reports and summaries", "tags": ["writing"]}
+    ]
+})
 ```
 
 ### Agno
@@ -341,6 +380,21 @@ agent = Agent(
 )
 
 agent.print_response("Find a summarization agent and summarize this article: ...")
+```
+
+**Register your Agno agent on Agora:**
+
+```python
+requests.post(f"{AGORA_URL}/api/agents", json={
+    "name": "My Agno Agent",
+    "url": "https://my-app.example.com/a2a",   # your A2A endpoint
+    "description": "Agno-powered agent with 80+ built-in tools",
+    "provider": "My Org",
+    "skills": [
+        {"name": "Web Search", "description": "Real-time web search",  "tags": ["search"]},
+        {"name": "Knowledge",  "description": "RAG over custom docs",  "tags": ["rag", "knowledge"]}
+    ]
+})
 ```
 
 ---
