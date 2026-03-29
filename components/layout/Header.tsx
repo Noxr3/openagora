@@ -8,11 +8,9 @@ const nav = [
 ]
 
 /**
- * Agora gate mark — a civic arch/gateway viewed straight-on.
- * Outer shape: solid arch rectangle (the gate walls + crown).
- * Inner path: arch-shaped opening, punched out via evenodd rule.
- * Both arcs are concentric (center 14,13 / radii 12 and 7)
- * giving uniform 5 px walls on all sides.
+ * Agora gate mark — a solid civic arch/door shape.
+ * Single path: rectangle base + semicircular arch crown.
+ * No cutout. Center x=14, arch radius=11, base y=28.
  */
 function AgoraIcon() {
   return (
@@ -24,9 +22,8 @@ function AgoraIcon() {
       aria-hidden="true"
     >
       <path
-        fillRule="evenodd"
         fill="#C4622D"
-        d="M2 28 L2 13 A12 12 0 0 1 26 13 L26 28 Z M7 28 L7 13 A7 7 0 0 1 21 13 L21 28 Z"
+        d="M3 28 L3 14 A11 11 0 0 1 25 14 L25 28 Z"
       />
     </svg>
   )

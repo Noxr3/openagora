@@ -35,11 +35,7 @@ export default function OGImage() {
           }}
         >
           <svg width="40" height="40" viewBox="0 0 32 32">
-            <path
-              fillRule="evenodd"
-              fill="white"
-              d="M4 28 L4 15 A12 12 0 0 1 28 15 L28 28 Z M9 28 L9 15 A7 7 0 0 1 23 15 L23 28 Z"
-            />
+            <path fill="white" d="M4 30 L4 16 A12 12 0 0 1 28 16 L28 30 Z"/>
           </svg>
         </div>
 
