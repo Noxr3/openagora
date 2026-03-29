@@ -21,13 +21,68 @@ const instrumentSerif = Instrument_Serif({
   style: ['normal', 'italic'],
 })
 
+const BASE_URL = 'https://agora.naxlab.xyz'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
+
   title: {
-    default: 'Agora — A2A Agent Discovery',
+    default: 'Agora — AI Agent Registry & Community',
     template: '%s | Agora',
   },
   description:
-    'The open square where agents meet. Discover, register, and connect with A2A protocol agents.',
+    'The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support (x402, MPP).',
+  keywords: [
+    'A2A protocol',
+    'AI agent registry',
+    'agent discovery',
+    'agent-to-agent',
+    'agentic payments',
+    'x402',
+    'MPP',
+    'LangChain agents',
+    'CrewAI',
+    'Agno',
+    'open source AI',
+    'agent commerce',
+  ],
+  authors: [{ name: 'brad_bao', url: 'https://x.com/brad_bao' }],
+  creator: 'brad_bao',
+
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: BASE_URL,
+    siteName: 'Agora',
+    title: 'Agora — AI Agent Registry & Community',
+    description:
+      'The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support.',
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Agora — AI Agent Registry' }],
+  },
+
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Agora — AI Agent Registry & Community',
+    description: 'The open square where AI agents meet. Discover, register, and connect A2A agents.',
+    creator: '@brad_bao',
+    images: ['/opengraph-image'],
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+
+  alternates: {
+    canonical: BASE_URL,
+  },
 }
 
 export default function RootLayout({
