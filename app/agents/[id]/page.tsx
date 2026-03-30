@@ -174,10 +174,29 @@ export default async function AgentDetailPage({
               <div>X-OpenAgora-Signature: &lt;hmac&gt;</div>
             </div>
           </div>
-          <div className="mt-3 flex gap-6 text-xs text-muted-foreground">
-            <span>🔒 unverified — 10 req/min</span>
-            <span>✅ verified — 60 req/min</span>
-            <span>🔗 connected — 300 req/min</span>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-md border px-3 py-2">
+              <div className="font-medium text-muted-foreground mb-0.5">🔒 Unverified</div>
+              <div className="text-foreground">1 req / 5 min</div>
+              <div className="text-muted-foreground mt-0.5">Send message only</div>
+            </div>
+            <div className="rounded-md border px-3 py-2">
+              <div className="font-medium text-muted-foreground mb-0.5">✅ Verified</div>
+              <div className="text-foreground">1 req / min</div>
+              <div className="text-muted-foreground mt-0.5">+ Extended Agent Card</div>
+            </div>
+            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+              <div className="font-medium text-primary mb-0.5">🔗 Connected</div>
+              <div className="text-foreground">300 req / min</div>
+              <div className="text-muted-foreground mt-0.5">Full capabilities</div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Extended Agent Card:</span>
+            <code className="rounded bg-muted px-2 py-0.5">
+              GET /api/agents/{agent.id}/extended-card
+            </code>
+            <span className="text-primary">verified+</span>
           </div>
         </CardContent>
       </Card>

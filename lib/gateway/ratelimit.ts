@@ -1,13 +1,40 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-// ─── Trust levels and their rate limits ───────────────────────────────────
+// ─── Trust levels ──────────────────────────────────────────────────────────
 
 export type TrustLevel = 'connected' | 'verified' | 'unverified'
 
-const LIMITS: Record<TrustLevel, { perMinute: number; perDay: number }> = {
-  connected:  { perMinute: 300, perDay: 10_000 },
-  verified:   { perMinute: 60,  perDay: 1_000  },
-  unverified: { perMinute: 10,  perDay: 100    },
+/**
+ * Rate limit windows per trust level.
+ *
+ * unverified — 1 request per 5 minutes (exploratory access only)
+ * verified   — 1 request per minute    + Extended Agent Card access
+ * connected  — 300 requests per minute  + full capabilities
+ */
+const LIMITS: Record<
+  TrustLevel,
+  { windowMs: number; maxRequests: number; perDay: number; label: string }
+> = {
+  connected:  { windowMs: 60_000,      maxRequests: 300, perDay: 10_000, label: '300 req/min'      },
+  verified:   { windowMs: 60_000,      maxRequests: 1,   perDay: 1_000,  label: '1 req/min'        },
+  unverified: { windowMs: 5 * 60_000,  maxRequests: 1,   perDay: 288,    label: '1 req/5 min'      },
+}
+
+/**
+ * Capabilities unlocked at each trust level.
+ * Each level includes all capabilities of the levels below it.
+ */
+export const CAPABILITIES: Record<TrustLevel, string[]> = {
+  unverified: ['send_message'],
+  verified:   ['send_message', 'extended_agent_card'],
+  connected:  ['send_message', 'extended_agent_card', 'priority_routing'],
+}
+
+export function hasCapability(
+  trustLevel: TrustLevel,
+  capability: string
+): boolean {
+  return CAPABILITIES[trustLevel].includes(capability)
 }
 
 // ─── Determine trust level between two agents ─────────────────────────────
@@ -39,16 +66,16 @@ export async function checkRateLimit(
   const limits = LIMITS[trustLevel]
   const now = Date.now()
 
-  const oneMinAgo  = new Date(now - 60_000).toISOString()
-  const oneDayAgo  = new Date(now - 86_400_000).toISOString()
+  const windowStart = new Date(now - limits.windowMs).toISOString()
+  const oneDayAgo   = new Date(now - 86_400_000).toISOString()
 
-  const [{ count: minCount }, { count: dayCount }] = await Promise.all([
+  const [{ count: windowCount }, { count: dayCount }] = await Promise.all([
     supabaseAdmin
       .from('proxy_calls')
       .select('*', { count: 'exact', head: true })
       .eq('caller_agent_id', callerAgentId)
       .eq('target_agent_id', targetAgentId)
-      .gte('called_at', oneMinAgo),
+      .gte('called_at', windowStart),
 
     supabaseAdmin
       .from('proxy_calls')
@@ -58,18 +85,19 @@ export async function checkRateLimit(
       .gte('called_at', oneDayAgo),
   ])
 
-  if ((minCount ?? 0) >= limits.perMinute) {
+  if ((windowCount ?? 0) >= limits.maxRequests) {
+    const retryAfter = Math.ceil(limits.windowMs / 1000)
     return {
       allowed: false,
-      reason: `Rate limit exceeded: ${limits.perMinute} req/min for trust level "${trustLevel}"`,
-      retryAfter: 60,
+      reason: `Rate limit exceeded: ${limits.label} for trust level "${trustLevel}". Connect with this agent to increase your limit.`,
+      retryAfter,
     }
   }
 
   if ((dayCount ?? 0) >= limits.perDay) {
     return {
       allowed: false,
-      reason: `Rate limit exceeded: ${limits.perDay} req/day for trust level "${trustLevel}"`,
+      reason: `Daily rate limit exceeded for trust level "${trustLevel}".`,
       retryAfter: 3600,
     }
   }
