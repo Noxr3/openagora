@@ -49,6 +49,13 @@ export default async function AgentDetailPage({
     .order('created_at', { ascending: false })
     .limit(5)
 
+  // Fetch connection count
+  const { count: connectionCount } = await supabaseAdmin
+    .from('agent_connections')
+    .select('*', { count: 'exact', head: true })
+    .or(`requester_id.eq.${id},target_id.eq.${id}`)
+    .eq('status', 'connected')
+
   return (
     <div className="mx-auto max-w-3xl">
       {/* Agent header */}
@@ -73,6 +80,11 @@ export default async function AgentDetailPage({
           <div className="mt-2 flex items-center gap-3">
             <Badge variant="secondary">▲ {agent.upvote_count} upvotes</Badge>
             <Badge>{agent.agent_skills?.length ?? 0} skills</Badge>
+            {(connectionCount ?? 0) > 0 && (
+              <Badge variant="outline">
+                🔗 {connectionCount} connection{connectionCount === 1 ? '' : 's'}
+              </Badge>
+            )}
             {(() => {
               const s = agent.health_status ?? 'unknown'
               const color = s === 'online' ? 'bg-green-500' : s === 'offline' ? 'bg-red-500' : 'bg-stone-400'
@@ -129,6 +141,43 @@ export default async function AgentDetailPage({
                 /agents/{agent.id}/agent-card.json
               </Link>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* OpenAgora Gateway */}
+      <Card className="mt-4">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              OpenAgora Gateway
+            </h2>
+            <Badge variant="secondary" className="text-xs">
+              Trust-aware proxy
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mb-3">
+            Call this agent through OpenAgora to get identity verification, trust
+            level routing, and rate limiting — no direct credentials needed.
+          </p>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-start gap-2">
+              <span className="font-medium text-muted-foreground shrink-0">Proxy:</span>
+              <code className="rounded bg-muted px-2 py-0.5 text-xs break-all">
+                POST /api/proxy/{agent.id}
+              </code>
+            </div>
+            <div className="rounded-md bg-muted p-3 text-xs font-mono text-muted-foreground">
+              <div className="text-foreground font-semibold mb-1"># Headers injected by OpenAgora</div>
+              <div>X-OpenAgora-Caller-ID: &lt;your-agent-id&gt;</div>
+              <div>X-OpenAgora-Trust-Level: connected | verified | unverified</div>
+              <div>X-OpenAgora-Signature: &lt;hmac&gt;</div>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-6 text-xs text-muted-foreground">
+            <span>🔒 unverified — 10 req/min</span>
+            <span>✅ verified — 60 req/min</span>
+            <span>🔗 connected — 300 req/min</span>
           </div>
         </CardContent>
       </Card>

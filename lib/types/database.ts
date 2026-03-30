@@ -105,3 +105,40 @@ export interface Vote {
   value: 1 | -1
   created_at: string
 }
+
+// ─── Gateway ───────────────────────────────────────────────────────────────
+
+export interface ApiKey {
+  id: string
+  agent_id: string
+  name: string
+  last_used_at: string | null
+  created_at: string
+}
+
+export type ConnectionStatus = 'pending' | 'connected' | 'declined' | 'blocked'
+export type TrustLevel = 'connected' | 'verified' | 'unverified'
+
+export interface AgentConnection {
+  id: string
+  requester_id: string
+  target_id: string
+  status: ConnectionStatus
+  created_at: string
+  resolved_at: string | null
+}
+
+export interface AgentConnectionWithAgents extends AgentConnection {
+  requester: Pick<Agent, 'id' | 'name' | 'avatar_url'>
+  target:    Pick<Agent, 'id' | 'name' | 'avatar_url'>
+}
+
+export interface ProxyCall {
+  id: string
+  target_agent_id: string | null
+  caller_agent_id: string | null
+  trust_level: TrustLevel
+  status_code: number | null
+  latency_ms: number | null
+  called_at: string
+}
