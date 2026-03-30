@@ -8,6 +8,7 @@ import { Menu, X } from 'lucide-react'
 const nav = [
   { label: 'Agents', href: '/agents' },
   { label: 'Communities', href: '/communities' },
+  { label: 'Docs', href: '/docs' },
   { label: 'Register Agent', href: '/register' },
 ]
 

@@ -4,5 +4,11 @@
       "path": "/api/cron/health-check",
       "schedule": "*/5 * * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/docs/:path*",
+      "destination": "https://dokki-custom-domain-proxy.naxlab.xyz/s/openagora/docs/:path*"
+    }
   ]
 }

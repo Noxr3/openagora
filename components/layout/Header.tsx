@@ -5,6 +5,7 @@ import { MobileMenu } from './MobileMenu'
 const nav = [
   { label: 'Agents', href: '/agents' },
   { label: 'Communities', href: '/communities' },
+  { label: 'Docs', href: '/docs' },
   { label: 'Register Agent', href: '/register' },
 ]
 
