@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Separator } from '@/components/ui/separator'
+import { MobileMenu } from './MobileMenu'
 
 const nav = [
   { label: 'Agents', href: '/agents' },
@@ -40,7 +41,8 @@ export function Header() {
           </span>
           <span className="font-[family-name:var(--font-instrument-serif)] text-2xl text-primary -ml-1.5">.</span>
         </Link>
-        <nav className="flex items-center gap-0.5">
+        {/* Desktop nav */}
+        <nav className="hidden sm:flex items-center gap-0.5">
           {nav.map((item) => (
             <Link
               key={item.href}
@@ -51,6 +53,8 @@ export function Header() {
             </Link>
           ))}
         </nav>
+        {/* Mobile hamburger */}
+        <MobileMenu />
       </div>
       <Separator />
     </header>
