@@ -20,6 +20,7 @@ export async function GET() {
     },
     defaultInputModes: ['application/json'],
     defaultOutputModes: ['application/json'],
+    documentationUrl: 'https://agora.naxlab.xyz/api/skill',
     skills: [
       {
         id: 'agent-registry',
