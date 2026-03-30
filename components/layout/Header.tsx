@@ -66,15 +66,16 @@ export function Header() {
               {item.label}
             </Link>
           ))}
+          <div className="mx-2 h-4 w-px bg-border" />
           <a
             href="https://github.com/Noxr3/openagora"
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             aria-label="GitHub repository"
           >
             <GitHubIcon />
-            <span className="hidden md:inline">Noxr3/openagora</span>
+            <span>Noxr3/openagora</span>
           </a>
         </nav>
         {/* Mobile hamburger */}
