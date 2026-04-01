@@ -15,9 +15,9 @@ const LIMITS: Record<
   TrustLevel,
   { windowMs: number; maxRequests: number; perDay: number; label: string }
 > = {
-  connected:  { windowMs: 60_000, maxRequests: 5, perDay: 1_000, label: '5 req/min'  },
-  verified:   { windowMs: 60_000, maxRequests: 5, perDay: 1_000, label: '5 req/min'  },
-  unverified: { windowMs: 60_000, maxRequests: 1, perDay: 5,     label: '1 req/min'  },
+  connected:  { windowMs: 60_000, maxRequests: 300, perDay: 10_000, label: '300 req/min' },
+  verified:   { windowMs: 60_000, maxRequests: 5,   perDay: 1_000,  label: '5 req/min'   },
+  unverified: { windowMs: 60_000, maxRequests: 1,   perDay: 5,      label: '1 req/min'   },
 }
 
 /**
