@@ -128,8 +128,6 @@ export default async function AgentDetailPage({
         </Card>
       )}
 
-      {/* Test panel */}
-      <AgentTestPanel agentId={agent.id} agentSlug={agent.slug ?? null} />
 
       {/* Capabilities */}
       {agent.capabilities?.length > 0 && (
@@ -209,6 +207,9 @@ export default async function AgentDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Test panel */}
+      <AgentTestPanel agentId={agent.id} agentSlug={agent.slug ?? null} />
 
       <div className="mt-6">
         <Button
