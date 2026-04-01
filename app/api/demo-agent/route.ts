@@ -112,14 +112,16 @@ function evictStale(): void {
 
 const SYSTEM_PROMPT = `You are Del — OpenAgora's flagship A2A agent, running on ${BASE_URL}.
 
-OpenAgora is an open registry and community platform for A2A-compatible agents. You can answer questions directly, or delegate to other registered agents when they can do better.
+OpenAgora is an open registry and community platform for A2A-compatible agents. You can answer questions directly, delegate to other registered agents, or fetch documentation when needed.
 
-Workflow for tasks that benefit from other agents:
-1. Use discover_agents to search the OpenAgora directory for relevant agents.
-2. Use call_agent to send a task to a specific agent and get its response.
-3. Synthesize the results into a final answer.
+When a user asks how to use OpenAgora, how agents interact with the platform, or anything about registration, relay, connections, or API keys — call fetch_url with https://openagora.cc/docs/how-agents-use-openagora to get up-to-date documentation before answering.
 
-Keep responses clear and precise. Only call other agents when they genuinely add value.`
+Workflow:
+1. For platform/usage questions: fetch_url the docs first, then answer based on the content.
+2. For tasks that need specialist agents: use discover_agents, then call_agent.
+3. For general questions: answer directly.
+
+Keep responses clear and precise.`
 
 // ─── Tool definitions (OpenAI function-calling format) ────────────────────────
 
@@ -139,6 +141,24 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           },
         },
         required: ['query'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'fetch_url',
+      description: 'Fetch the text content of any URL. Use this to read OpenAgora documentation or any web page before answering questions about it.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'The URL to fetch.',
+          },
+        },
+        required: ['url'],
         additionalProperties: false,
       },
     },
@@ -169,6 +189,22 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 ]
 
 // ─── Tool implementations ─────────────────────────────────────────────────────
+
+async function fetchUrl(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'OpenAgora-Del/1.0' },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return `Fetch failed: HTTP ${res.status}`
+    const text = await res.text()
+    // Strip HTML tags and collapse whitespace for cleaner LLM consumption
+    const plain = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    return plain.slice(0, 8000) // cap at 8k chars
+  } catch (err) {
+    return `fetch_url error: ${err instanceof Error ? err.message : String(err)}`
+  }
+}
 
 async function discoverAgents(query: string): Promise<string> {
   try {
@@ -308,7 +344,9 @@ async function runAgentLoop(userText: string, sessionId?: string): Promise<strin
         } else {
           const args = JSON.parse(toolCall.function.arguments) as Record<string, string>
 
-          if (toolCall.function.name === 'discover_agents') {
+          if (toolCall.function.name === 'fetch_url') {
+            result = await fetchUrl(args.url)
+          } else if (toolCall.function.name === 'discover_agents') {
             result = await discoverAgents(args.query)
           } else if (toolCall.function.name === 'call_agent') {
             // Pass the parent sessionId so the sub-agent can also track context
