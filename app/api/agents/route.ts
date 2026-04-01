@@ -5,6 +5,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') ?? ''
   const skill = searchParams.get('skill') ?? ''
+  const status = searchParams.get('status') ?? ''   // online | offline | unknown
+  const provider = searchParams.get('provider') ?? ''
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 50)
   const offset = (page - 1) * limit
@@ -16,15 +18,23 @@ export async function GET(request: Request) {
   if (q) {
     query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,slug.ilike.%${q}%`)
   }
+  if (status) {
+    query = query.eq('health_status', status)
+  }
+  if (provider) {
+    query = query.ilike('provider', `%${provider}%`)
+  }
 
   // Also fetch exact name/slug matches separately to guarantee they appear
-  const exactPromise = q
+  let exactQuery = q
     ? supabaseAdmin
         .from('agents')
         .select('*, agent_skills(*)')
         .or(`name.ilike.${q},slug.eq.${q.toLowerCase()}`)
-        .limit(3)
     : null
+  if (exactQuery && status) exactQuery = exactQuery.eq('health_status', status)
+  if (exactQuery && provider) exactQuery = exactQuery.ilike('provider', `%${provider}%`)
+  const exactPromise = exactQuery?.limit(3) ?? null
 
   const mainResult = await query.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
   const { data: agents, count, error } = mainResult
