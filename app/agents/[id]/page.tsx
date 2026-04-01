@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { timeAgo } from '@/lib/utils/format'
 import { AgentTestPanel } from '@/components/agents/AgentTestPanel'
 import { PaymentSchemes } from '@/components/agents/PaymentSchemes'
+import { ConnectionCard } from '@/components/agents/ConnectionCard'
 
 export async function generateMetadata({
   params,
@@ -80,11 +81,9 @@ export default async function AgentDetailPage({
           <div className="mt-2 flex items-center gap-3">
             <Badge variant="secondary">▲ {agent.upvote_count} upvotes</Badge>
             <Badge>{agent.agent_skills?.length ?? 0} skills</Badge>
-            {(connectionCount ?? 0) > 0 && (
-              <Badge variant="outline">
-                🔗 {connectionCount} connection{connectionCount === 1 ? '' : 's'}
-              </Badge>
-            )}
+            <Badge variant="outline">
+              🔗 {connectionCount ?? 0} connection{connectionCount === 1 ? '' : 's'}
+            </Badge>
             {(() => {
               const s = agent.health_status ?? 'unknown'
               const color = s === 'online' ? 'bg-green-500' : s === 'offline' ? 'bg-red-500' : 'bg-stone-400'
@@ -115,91 +114,7 @@ export default async function AgentDetailPage({
         </CardContent>
       </Card>
 
-      {/* Service endpoint & Agent Card */}
-      <Card className="mt-4">
-        <CardContent className="p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Connection
-          </h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-muted-foreground">
-                Endpoint:
-              </span>
-              <code className="rounded bg-muted px-2 py-0.5 text-xs">
-                {agent.url}
-              </code>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-muted-foreground">
-                Agent Card:
-              </span>
-              <Link
-                href={`/agents/${agent.id}/agent-card.json`}
-                className="text-primary hover:underline"
-              >
-                /agents/{agent.id}/agent-card.json
-              </Link>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* OpenAgora Gateway */}
-      <Card className="mt-4">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              OpenAgora Gateway
-            </h2>
-            <Badge variant="secondary" className="text-xs">
-              Trust-aware proxy
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            Call this agent through OpenAgora to get identity verification, trust
-            level routing, and rate limiting — no direct credentials needed.
-          </p>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-start gap-2">
-              <span className="font-medium text-muted-foreground shrink-0">Proxy:</span>
-              <code className="rounded bg-muted px-2 py-0.5 text-xs break-all">
-                POST /api/proxy/{agent.id}
-              </code>
-            </div>
-            <div className="rounded-md bg-muted p-3 text-xs font-mono text-muted-foreground">
-              <div className="text-foreground font-semibold mb-1"># Headers injected by OpenAgora</div>
-              <div>X-OpenAgora-Caller-ID: &lt;your-agent-id&gt;</div>
-              <div>X-OpenAgora-Trust-Level: connected | verified | unverified</div>
-              <div>X-OpenAgora-Signature: &lt;hmac&gt;</div>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-md border px-3 py-2">
-              <div className="font-medium text-muted-foreground mb-0.5">🔒 Unverified</div>
-              <div className="text-foreground">1 req / 5 min</div>
-              <div className="text-muted-foreground mt-0.5">Send message only</div>
-            </div>
-            <div className="rounded-md border px-3 py-2">
-              <div className="font-medium text-muted-foreground mb-0.5">✅ Verified</div>
-              <div className="text-foreground">1 req / min</div>
-              <div className="text-muted-foreground mt-0.5">+ Extended Agent Card</div>
-            </div>
-            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
-              <div className="font-medium text-primary mb-0.5">🔗 Connected</div>
-              <div className="text-foreground">300 req / min</div>
-              <div className="text-muted-foreground mt-0.5">Full capabilities</div>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Extended Agent Card:</span>
-            <code className="rounded bg-muted px-2 py-0.5">
-              GET /api/agents/{agent.id}/extended-card
-            </code>
-            <span className="text-primary">verified+</span>
-          </div>
-        </CardContent>
-      </Card>
+      <ConnectionCard agentId={agent.id} agentUrl={agent.url} />
 
       {/* Payment schemes */}
       {agent.payment_schemes?.length > 0 && (
