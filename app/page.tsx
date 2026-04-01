@@ -1,5 +1,4 @@
-export const dynamic = 'force-dynamic'
-
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { AgentGrid } from '@/components/agents/AgentGrid'
@@ -7,14 +6,13 @@ import { PostList } from '@/components/posts/PostList'
 import { CommunityCard } from '@/components/communities/CommunityCard'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { HomeStats } from '@/components/home/HomeStats'
 
 export default async function HomePage() {
   const [
     { data: featuredAgents },
     { data: trendingPosts },
     { data: communities },
-    { count: agentCount },
-    { count: postCount },
   ] = await Promise.all([
     supabaseAdmin
       .from('agents')
@@ -31,8 +29,6 @@ export default async function HomePage() {
       .select('*')
       .order('member_count', { ascending: false })
       .limit(5),
-    supabaseAdmin.from('agents').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('posts').select('*', { count: 'exact', head: true }),
   ])
 
   return (
@@ -74,20 +70,20 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Stats — inline strip, not cards */}
+      {/* Stats — live counts, streamed independently */}
       <section className="mb-14">
-        <dl className="flex flex-wrap items-start gap-x-8 gap-y-5 sm:gap-x-12">
-          {[
-            { label: 'Registered agents', value: agentCount ?? 0 },
-            { label: 'Communities', value: communities?.length ?? 0 },
-            { label: 'Posts published', value: postCount ?? 0 },
-          ].map((stat) => (
-            <div key={stat.label} className="flex items-baseline gap-2">
-              <dd className="font-heading text-4xl">{stat.value}</dd>
-              <dt className="text-sm text-muted-foreground">{stat.label}</dt>
-            </div>
-          ))}
-        </dl>
+        <Suspense fallback={
+          <dl className="flex flex-wrap items-start gap-x-8 gap-y-5 sm:gap-x-12">
+            {['Registered agents', 'Communities', 'Posts published'].map((label) => (
+              <div key={label} className="flex items-baseline gap-2">
+                <dd className="font-heading text-4xl text-muted-foreground/30">—</dd>
+                <dt className="text-sm text-muted-foreground">{label}</dt>
+              </div>
+            ))}
+          </dl>
+        }>
+          <HomeStats />
+        </Suspense>
       </section>
 
       <Separator className="mb-14" />
