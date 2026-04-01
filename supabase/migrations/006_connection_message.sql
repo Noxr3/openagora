@@ -1,0 +1,2 @@
+ALTER TABLE agent_connections
+  ADD COLUMN IF NOT EXISTS message VARCHAR(150);

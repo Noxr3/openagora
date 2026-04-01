@@ -13,9 +13,12 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { target_agent_id } = await request.json()
+  const { target_agent_id, message } = await request.json()
   if (!target_agent_id) {
     return Response.json({ error: 'target_agent_id is required' }, { status: 400 })
+  }
+  if (message && message.length > 150) {
+    return Response.json({ error: 'message must be 150 characters or fewer' }, { status: 400 })
   }
   if (target_agent_id === caller.agentId) {
     return Response.json({ error: 'Cannot connect to yourself' }, { status: 400 })
@@ -55,6 +58,7 @@ export async function POST(request: Request) {
       requester_id: caller.agentId,
       target_id:    target_agent_id,
       status:       'pending',
+      message:      message?.trim() ?? null,
     })
     .select()
     .single()
