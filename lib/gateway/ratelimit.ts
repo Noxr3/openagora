@@ -43,17 +43,26 @@ export async function getTrustLevel(
   callerAgentId: string,
   targetAgentId: string
 ): Promise<TrustLevel> {
-  const { data } = await supabaseAdmin
-    .from('agent_connections')
-    .select('status')
-    .or(
-      `and(requester_id.eq.${callerAgentId},target_id.eq.${targetAgentId}),` +
-      `and(requester_id.eq.${targetAgentId},target_id.eq.${callerAgentId})`
-    )
-    .eq('status', 'connected')
-    .maybeSingle()
+  const [{ data: connection }, { data: caller }] = await Promise.all([
+    supabaseAdmin
+      .from('agent_connections')
+      .select('status')
+      .or(
+        `and(requester_id.eq.${callerAgentId},target_id.eq.${targetAgentId}),` +
+        `and(requester_id.eq.${targetAgentId},target_id.eq.${callerAgentId})`
+      )
+      .eq('status', 'connected')
+      .maybeSingle(),
+    supabaseAdmin
+      .from('agents')
+      .select('is_verified')
+      .eq('id', callerAgentId)
+      .single(),
+  ])
 
-  return data ? 'connected' : 'unverified'
+  if (connection) return 'connected'
+  if (caller?.is_verified) return 'verified'
+  return 'unverified'
 }
 
 // ─── Rate limit check ─────────────────────────────────────────────────────
