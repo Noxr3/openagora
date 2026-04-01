@@ -459,24 +459,54 @@ export async function POST(request: Request) {
   let rpcId: string | number | null = null
 
   try {
-    const body = (await request.json()) as A2AJsonRpcRequest
-    rpcId = body.id ?? null
+    const raw = (await request.json()) as Record<string, unknown>
+    rpcId = (raw.id as string | number | null) ?? null
 
-    if (body.jsonrpc !== '2.0') {
-      return jsonRpcError(rpcId, -32600, 'Invalid Request: jsonrpc must be "2.0"')
+    // ── Auto-fix common mistakes ───────────────────────────────────────────
+
+    // Mistake 1: plain message without JSON-RPC wrapper
+    // { "message": "hello" } or { "text": "hello" }
+    if (!raw.jsonrpc && !raw.method && (raw.message || raw.text)) {
+      const text = typeof raw.message === 'string' ? raw.message : typeof raw.text === 'string' ? raw.text : null
+      if (text) {
+        return handleTaskSend(rpcId, {
+          id: `task-${Date.now()}`,
+          sessionId: `session-${Date.now()}`,
+          message: { role: 'user', parts: [{ type: 'text', text }] },
+        })
+      }
     }
+
+    // Mistake 2: message.content instead of message.parts
+    const params = raw.params as Record<string, unknown> | undefined
+    const msg = params?.message as Record<string, unknown> | undefined
+    if (msg && !msg.parts && msg.content) {
+      if (typeof msg.content === 'string') {
+        msg.parts = [{ type: 'text', text: msg.content }]
+      } else if (typeof msg.content === 'object' && msg.content && 'text' in (msg.content as Record<string, unknown>)) {
+        msg.parts = [msg.content]
+      }
+    }
+
+    const body = raw as unknown as A2AJsonRpcRequest
+
+    // Be lenient with jsonrpc version — accept missing or wrong
+    // (strict A2A compliance is nice, but helping callers is nicer)
 
     switch (body.method) {
       case 'tasks/send':
+      case 'message':       // common mistake — treat as tasks/send
+      case 'send':          // another common mistake
         return handleTaskSend(rpcId, body.params as unknown as A2ATaskSendParams)
       case 'tasks/get':
       case 'tasks/cancel':
         return jsonRpcError(rpcId, -32001, 'Task not found: this agent is stateless')
       default:
-        return jsonRpcError(rpcId, -32601, `Method not found: ${body.method}`)
+        return jsonRpcError(rpcId, -32601,
+          `Method not found: "${body.method}". Use "tasks/send". Example: {"jsonrpc":"2.0","method":"tasks/send","params":{"id":"task-1","sessionId":"s1","message":{"role":"user","parts":[{"type":"text","text":"Hello"}]}}}`)
     }
   } catch {
-    return jsonRpcError(rpcId, -32700, 'Parse error: invalid JSON')
+    return jsonRpcError(rpcId, -32700, 'Parse error: invalid JSON. Expected A2A JSON-RPC 2.0. Simplest valid request: {"jsonrpc":"2.0","method":"tasks/send","params":{"id":"1","sessionId":"1","message":{"role":"user","parts":[{"type":"text","text":"Hello"}]}}}')
   }
 }
 

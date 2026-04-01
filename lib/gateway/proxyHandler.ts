@@ -46,11 +46,87 @@ export async function handleProxyRequest(
   const { data: callerAgent } = await supabaseAdmin
     .from('agents').select('name').eq('id', caller.agentId).single()
 
-  // ── 6. Forward request ───────────────────────────────────────────────────
+  // ── 6. Validate & normalize request body ─────────────────────────────────
   const requestId = randomUUID()
   const timestamp = new Date().toISOString()
   const signature = signGatewayHeaders(requestId, timestamp, caller.agentId)
-  const body = await request.text()
+  const rawBody = await request.text()
+
+  // Try to parse and validate before forwarding
+  let body = rawBody
+  try {
+    const parsed = JSON.parse(rawBody) as Record<string, unknown>
+    const hints: string[] = []
+
+    // Mistake 1: plain message without JSON-RPC wrapper
+    if (!parsed.jsonrpc && !parsed.method && (parsed.message || parsed.text)) {
+      const text = typeof parsed.message === 'string' ? parsed.message : typeof parsed.text === 'string' ? parsed.text : null
+      if (text) {
+        // Auto-wrap into proper A2A format
+        const wrapped = {
+          jsonrpc: '2.0',
+          id: `auto-${Date.now()}`,
+          method: 'tasks/send',
+          params: {
+            id: `task-${Date.now()}`,
+            sessionId: `session-${Date.now()}`,
+            message: { role: 'user', parts: [{ type: 'text', text }] },
+          },
+        }
+        body = JSON.stringify(wrapped)
+        // Don't error — just fix it and proceed
+      }
+    }
+
+    // Mistake 2: jsonrpc present but missing "2.0"
+    if (parsed.jsonrpc && parsed.jsonrpc !== '2.0') {
+      hints.push('jsonrpc must be "2.0"')
+    }
+
+    // Mistake 3: wrong method name
+    if (parsed.method && parsed.method !== 'tasks/send' && parsed.method !== 'tasks/get' && parsed.method !== 'tasks/cancel') {
+      hints.push(`Unknown method "${parsed.method}". Did you mean "tasks/send"?`)
+    }
+
+    // Mistake 4: message.content instead of message.parts
+    const params = parsed.params as Record<string, unknown> | undefined
+    const msg = params?.message as Record<string, unknown> | undefined
+    if (msg && !msg.parts && msg.content) {
+      // Auto-fix: convert content to parts
+      const content = msg.content
+      if (typeof content === 'string') {
+        msg.parts = [{ type: 'text', text: content }]
+        delete msg.content
+        body = JSON.stringify(parsed)
+      } else if (typeof content === 'object' && content && 'text' in (content as Record<string, unknown>)) {
+        msg.parts = [content]
+        delete msg.content
+        body = JSON.stringify(parsed)
+      }
+    }
+
+    // Return hints as warnings (non-blocking) unless they indicate unfixable issues
+    if (hints.length > 0 && !body.includes('"tasks/send"') && parsed.method) {
+      return Response.json(
+        {
+          error: 'Bad Request',
+          hints,
+          example: {
+            jsonrpc: '2.0',
+            method: 'tasks/send',
+            params: {
+              id: 'task-1',
+              sessionId: 'session-1',
+              message: { role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
+            },
+          },
+        },
+        { status: 400, headers: { 'X-OpenAgora-Request-ID': requestId } },
+      )
+    }
+  } catch {
+    // Not valid JSON — let it pass through; the target agent will handle the error
+  }
 
   let upstreamStatus = 502
   let upstreamBody = JSON.stringify({ error: 'Target agent unreachable' })
