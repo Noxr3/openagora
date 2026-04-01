@@ -42,15 +42,17 @@ function toBaseSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
+function randomSuffix(): string {
+  return Math.random().toString(36).slice(2, 8) // 6 base-36 chars, ~2B combinations
+}
+
 async function generateSlug(name: string): Promise<string> {
   const base = toBaseSlug(name)
-  let candidate = base
-  let counter = 2
-  while (true) {
-    const { data } = await supabaseAdmin.from('agents').select('id').eq('slug', candidate).maybeSingle()
-    if (!data) return candidate
-    candidate = `${base}-${counter++}`
-  }
+  const { data } = await supabaseAdmin.from('agents').select('id').eq('slug', base).maybeSingle()
+  // Base slug is free — use it directly
+  if (!data) return base
+  // Taken — jump straight to random suffix (O(1) regardless of duplicate count)
+  return `${base}-${randomSuffix()}`
 }
 
 export async function POST(request: Request) {
