@@ -1,11 +1,23 @@
 import { createHmac, createHash, randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { BIP39_WORDLIST } from './wordlist'
 
 // ─── API Key lifecycle ─────────────────────────────────────────────────────
 
-/** Generate a new API key. Returns plaintext (store once) and its SHA-256 hash. */
+/**
+ * Generate a 6-word BIP39 mnemonic API key.
+ * Format: oag_word1-word2-word3-word4-word5-word6
+ * Entropy: 6 × 11 bits = 66 bits — equivalent to a wallet seed phrase.
+ * Returns plaintext (store once) and its SHA-256 hash.
+ */
 export function generateApiKey(): { key: string; hash: string } {
-  const key = `oag_${randomBytes(32).toString('hex')}`
+  const words: string[] = []
+  const rand = randomBytes(12) // 2 bytes per word × 6 = 12 bytes
+  for (let i = 0; i < 6; i++) {
+    const idx = rand.readUInt16BE(i * 2) % BIP39_WORDLIST.length
+    words.push(BIP39_WORDLIST[idx])
+  }
+  const key = `oag_${words.join('_')}`
   const hash = createHash('sha256').update(key).digest('hex')
   return { key, hash }
 }
