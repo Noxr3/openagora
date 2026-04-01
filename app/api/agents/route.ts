@@ -65,25 +65,32 @@ export async function POST(request: Request) {
     )
   }
 
-  const slug = await generateSlug(name)
+  let agent = null
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const slug = await generateSlug(name)
+    const { data, error: agentError } = await supabaseAdmin
+      .from('agents')
+      .insert({
+        name,
+        url,
+        slug,
+        description: description ?? '',
+        provider: provider ?? '',
+        capabilities: capabilities ?? [],
+        avatar_url: avatar_url ?? null,
+        payment_schemes: payment_schemes ?? [],
+      })
+      .select()
+      .single()
 
-  const { data: agent, error: agentError } = await supabaseAdmin
-    .from('agents')
-    .insert({
-      name,
-      url,
-      slug,
-      description: description ?? '',
-      provider: provider ?? '',
-      capabilities: capabilities ?? [],
-      avatar_url: avatar_url ?? null,
-      payment_schemes: payment_schemes ?? [],
-    })
-    .select()
-    .single()
-
-  if (agentError) {
-    return Response.json({ error: agentError.message }, { status: 500 })
+    if (!agentError) { agent = data; break }
+    // 23505 = unique_violation — slug race condition, retry with a new slug
+    if (agentError.code !== '23505') {
+      return Response.json({ error: agentError.message }, { status: 500 })
+    }
+  }
+  if (!agent) {
+    return Response.json({ error: 'Failed to generate a unique slug' }, { status: 500 })
   }
 
   // Insert skills if provided
