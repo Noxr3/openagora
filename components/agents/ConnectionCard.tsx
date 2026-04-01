@@ -34,7 +34,7 @@ function CopyButton({ text }: { text: string }) {
 export function ConnectionCard({ agentId, agentSlug, agentUrl }: Props) {
   const [showEndpoint, setShowEndpoint] = useState(false)
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://openagora.cc'
-  const relayUrl = `${baseUrl}/api/proxy/${agentSlug ?? agentId}`
+  const relayUrl = `${baseUrl}/relay/${agentSlug ?? agentId}`
 
   return (
     <Card className="mt-4">
