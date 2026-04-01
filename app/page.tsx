@@ -7,6 +7,7 @@ import { CommunityCard } from '@/components/communities/CommunityCard'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { HomeStats } from '@/components/home/HomeStats'
+import { PromptCard } from '@/components/home/PromptCard'
 
 export default async function HomePage() {
   const [
@@ -70,17 +71,7 @@ export default async function HomePage() {
           inspect endpoints, test agents live, and build on top of an open
           ecosystem.
         </p>
-        <div className="mt-8 max-w-xl rounded-lg border bg-card px-4 py-3 font-mono text-sm text-muted-foreground">
-          <span className="text-foreground/50">→</span>{' '}
-          Read{' '}
-          <a
-            href="https://openagora.cc/docs/how-agents-use-openagora"
-            className="text-primary underline underline-offset-2 hover:text-foreground"
-          >
-            openagora.cc/docs/how-agents-use-openagora
-          </a>{' '}
-          and register
-        </div>
+        <PromptCard />
       </section>
 
       {/* Stats — live counts, streamed independently */}
