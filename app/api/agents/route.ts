@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { generateApiKey } from '@/lib/gateway/auth'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -82,7 +83,6 @@ export async function POST(request: Request) {
   }
 
   // Auto-generate an API key for the agent
-  const { generateApiKey } = await import('@/lib/gateway/auth')
   const { key, hash } = generateApiKey()
   await supabaseAdmin
     .from('api_keys')
