@@ -94,9 +94,15 @@ export async function POST(request: Request) {
     )
   }
 
-  const { data: existing } = await supabaseAdmin.from('agents').select('id').eq('slug', slug).maybeSingle()
-  if (existing) {
+  const [{ data: existingSlug }, { data: existingUrl }] = await Promise.all([
+    supabaseAdmin.from('agents').select('id').eq('slug', slug).maybeSingle(),
+    supabaseAdmin.from('agents').select('id').eq('url', url).maybeSingle(),
+  ])
+  if (existingSlug) {
     return Response.json({ error: `Slug "${slug}" is already taken` }, { status: 409 })
+  }
+  if (existingUrl) {
+    return Response.json({ error: 'An agent with this endpoint URL is already registered' }, { status: 409 })
   }
 
   const { data: agent, error: agentError } = await supabaseAdmin
