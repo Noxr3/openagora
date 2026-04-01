@@ -114,7 +114,7 @@ export default async function AgentDetailPage({
         </CardContent>
       </Card>
 
-      <ConnectionCard agentId={agent.id} agentUrl={agent.url} />
+      <ConnectionCard agentId={agent.id} agentSlug={agent.slug ?? null} agentUrl={agent.url} />
 
       {/* Payment schemes */}
       {agent.payment_schemes?.length > 0 && (

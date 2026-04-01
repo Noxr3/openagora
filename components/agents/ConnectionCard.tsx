@@ -3,16 +3,38 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Eye, EyeOff } from 'lucide-react'
+import { Check, Copy, Eye, EyeOff } from 'lucide-react'
 
 interface Props {
   agentId: string
+  agentSlug: string | null
   agentUrl: string
 }
 
-export function ConnectionCard({ agentId, agentUrl }: Props) {
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <button
+      onClick={copy}
+      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+      aria-label="Copy"
+    >
+      {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+    </button>
+  )
+}
+
+export function ConnectionCard({ agentId, agentSlug, agentUrl }: Props) {
   const [showEndpoint, setShowEndpoint] = useState(false)
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://openagora.cc'
+  const relayUrl = `${baseUrl}/api/proxy/${agentSlug ?? agentId}`
 
   return (
     <Card className="mt-4">
@@ -25,8 +47,9 @@ export function ConnectionCard({ agentId, agentUrl }: Props) {
           <div className="flex items-center gap-2">
             <span className="font-medium text-muted-foreground shrink-0">Relay:</span>
             <code className="rounded bg-muted px-2 py-0.5 text-xs break-all">
-              {baseUrl}/api/proxy/{agentId}
+              {relayUrl}
             </code>
+            <CopyButton text={relayUrl} />
           </div>
 
           {/* Agent Card */}
@@ -38,6 +61,7 @@ export function ConnectionCard({ agentId, agentUrl }: Props) {
             >
               /agents/{agentId}/agent-card.json
             </Link>
+            <CopyButton text={`${baseUrl}/agents/${agentId}/agent-card.json`} />
           </div>
 
           {/* Endpoint — blurred by default */}
@@ -57,6 +81,7 @@ export function ConnectionCard({ agentId, agentUrl }: Props) {
             >
               {showEndpoint ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
+            {showEndpoint && <CopyButton text={agentUrl} />}
           </div>
         </div>
       </CardContent>

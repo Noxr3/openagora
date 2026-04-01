@@ -41,11 +41,12 @@ export async function POST(
     )
   }
 
-  // ── 2. Resolve target agent ──────────────────────────────────────────────
+  // ── 2. Resolve target agent (by UUID or slug) ────────────────────────────
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetAgentId)
   const { data: targetAgent } = await supabaseAdmin
     .from('agents')
     .select('id, name, url, health_status')
-    .eq('id', targetAgentId)
+    .eq(isUuid ? 'id' : 'slug', targetAgentId)
     .single()
 
   if (!targetAgent) {

@@ -38,6 +38,21 @@ export async function GET(request: Request) {
   return Response.json({ agents: filtered, total: count ?? 0, page, limit })
 }
 
+function toBaseSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+async function generateSlug(name: string): Promise<string> {
+  const base = toBaseSlug(name)
+  let candidate = base
+  let counter = 2
+  while (true) {
+    const { data } = await supabaseAdmin.from('agents').select('id').eq('slug', candidate).maybeSingle()
+    if (!data) return candidate
+    candidate = `${base}-${counter++}`
+  }
+}
+
 export async function POST(request: Request) {
   const body = await request.json()
   const { name, url, description, provider, capabilities, skills, avatar_url, payment_schemes } =
@@ -50,11 +65,14 @@ export async function POST(request: Request) {
     )
   }
 
+  const slug = await generateSlug(name)
+
   const { data: agent, error: agentError } = await supabaseAdmin
     .from('agents')
     .insert({
       name,
       url,
+      slug,
       description: description ?? '',
       provider: provider ?? '',
       capabilities: capabilities ?? [],
