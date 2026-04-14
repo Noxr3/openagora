@@ -66,7 +66,7 @@ function X402Card({ scheme }: { scheme: X402Scheme }) {
       <div className="space-y-2 text-xs text-muted-foreground">
         <div className="flex flex-wrap gap-1.5">
           <span className="font-medium text-foreground">Networks:</span>
-          {scheme.networks.map((n) => (
+          {(scheme.networks ?? []).map((n) => (
             <span
               key={n}
               className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px]"
@@ -77,7 +77,7 @@ function X402Card({ scheme }: { scheme: X402Scheme }) {
         </div>
         <div className="flex flex-wrap gap-1.5">
           <span className="font-medium text-foreground">Tokens:</span>
-          {scheme.assets.map((a) => (
+          {(scheme.assets ?? []).map((a) => (
             <span
               key={a}
               className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px]"
@@ -112,7 +112,7 @@ function MppCard({ scheme }: { scheme: MppScheme }) {
       <div className="space-y-2 text-xs text-muted-foreground">
         <div className="flex flex-wrap gap-1.5">
           <span className="font-medium text-foreground">Rails:</span>
-          {scheme.methods.map((m) => (
+          {(scheme.methods ?? []).map((m) => (
             <span
               key={m}
               className="flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5"
@@ -124,7 +124,7 @@ function MppCard({ scheme }: { scheme: MppScheme }) {
         </div>
         <div className="flex flex-wrap gap-1.5">
           <span className="font-medium text-foreground">Billing:</span>
-          {scheme.intents.map((i) => (
+          {(scheme.intents ?? []).map((i) => (
             <span
               key={i}
               className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px]"
