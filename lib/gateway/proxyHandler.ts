@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { resolveApiKey, signGatewayHeaders } from '@/lib/gateway/auth'
 import { getTrustLevel, checkRateLimit } from '@/lib/gateway/ratelimit'
+import { verifyPayment, settlePayment, encodeSettlementHeader } from '@/lib/gateway/x402'
 
 export async function handleProxyRequest(
   request: Request,
@@ -175,41 +176,112 @@ export async function handleProxyRequest(
     latency_ms:      Date.now() - start,
   })
 
-  // ── 8. x402 payment logging ────────────────────────────────────────────
+  // ── 8. x402 payment flow ────────────────────────────────────────────────
+
+  // 8a. Target returned 402 — log challenge, forward to caller
   if (upstreamStatus === 402 && upstreamPaymentRequired) {
-    // Target demands payment — log the challenge
     try {
       const decoded = JSON.parse(
         Buffer.from(upstreamPaymentRequired, 'base64').toString()
-      ) as { network?: string; asset?: string; amount?: string; payTo?: string }
-      await supabaseAdmin.from('payments').insert({
-        caller_agent_id: caller.agentId,
-        target_agent_id: targetAgent.id,
-        network: decoded.network ?? 'unknown',
-        asset:   decoded.asset ?? 'unknown',
-        amount:  decoded.amount ?? '0',
-        pay_to:  decoded.payTo ?? '',
-        status:  'challenged',
-      })
+      ) as { accepts?: Array<{ network?: string; asset?: string; amount?: string; payTo?: string }> }
+      const first = decoded.accepts?.[0]
+      if (first) {
+        await supabaseAdmin.from('payments').insert({
+          caller_agent_id: caller.agentId,
+          target_agent_id: targetAgent.id,
+          network: first.network ?? 'unknown',
+          asset:   first.asset ?? 'unknown',
+          amount:  first.amount ?? '0',
+          pay_to:  first.payTo ?? '',
+          status:  'challenged',
+        })
+      }
     } catch {
-      // Malformed payment header — still forward the 402
+      // Malformed — still forward the 402
     }
   }
 
-  if (upstreamStatus === 200 && upstreamPaymentResponse) {
-    // Payment settled — log settlement
+  // 8b. Caller provided PAYMENT-SIGNATURE — verify + settle via Coinbase facilitator
+  if (paymentSignature && upstreamPaymentRequired && upstreamStatus === 402) {
+    // The upstream returned 402 even with the signature — means we need to
+    // verify + settle ourselves, then retry the request with proof
+    const hasCdpKeys = process.env.CDP_API_KEY_ID && process.env.CDP_API_KEY_SECRET
+
+    if (hasCdpKeys) {
+      const verification = await verifyPayment(paymentSignature, upstreamPaymentRequired)
+
+      if (verification.isValid) {
+        const settlement = await settlePayment(paymentSignature, upstreamPaymentRequired)
+
+        if (settlement.success) {
+          // Payment settled — log it
+          const decoded = JSON.parse(
+            Buffer.from(upstreamPaymentRequired, 'base64').toString()
+          ) as { accepts?: Array<{ network?: string; asset?: string; amount?: string; payTo?: string }> }
+          const first = decoded.accepts?.[0]
+          await supabaseAdmin.from('payments').insert({
+            caller_agent_id: caller.agentId,
+            target_agent_id: targetAgent.id,
+            network:    settlement.network ?? first?.network ?? 'unknown',
+            asset:      first?.asset ?? 'unknown',
+            amount:     first?.amount ?? '0',
+            pay_to:     first?.payTo ?? '',
+            tx_hash:    settlement.transaction,
+            status:     'settled',
+            settled_at: new Date().toISOString(),
+          })
+
+          // Retry the original request to target with settlement proof
+          const paymentResponseHeader = encodeSettlementHeader(settlement)
+          try {
+            const retryUpstream = await fetch(targetAgent.url, {
+              method: 'POST',
+              headers: {
+                ...forwardHeaders,
+                'payment-response': paymentResponseHeader,
+              },
+              body,
+              signal: AbortSignal.timeout(30_000),
+            })
+            upstreamStatus      = retryUpstream.status
+            upstreamBody        = await retryUpstream.text()
+            upstreamContentType = retryUpstream.headers.get('content-type') ?? 'application/json'
+            upstreamPaymentResponse = paymentResponseHeader
+            upstreamPaymentRequired = '' // clear — payment is settled
+          } catch {
+            // Retry failed — still return settlement info
+          }
+        } else {
+          // Settlement failed — return error to caller
+          return Response.json(
+            { error: 'Payment settlement failed', reason: settlement.errorReason },
+            { status: 402, headers: { 'X-OpenAgora-Request-ID': requestId, 'payment-required': upstreamPaymentRequired } },
+          )
+        }
+      } else {
+        return Response.json(
+          { error: 'Payment verification failed', reason: verification.invalidReason },
+          { status: 402, headers: { 'X-OpenAgora-Request-ID': requestId, 'payment-required': upstreamPaymentRequired } },
+        )
+      }
+    }
+    // If no CDP keys configured, fall through and return the 402 transparently
+  }
+
+  // 8c. Transparent settlement logging (target settled directly, returned 200 + proof)
+  if (upstreamStatus === 200 && upstreamPaymentResponse && !paymentSignature) {
     try {
       const decoded = JSON.parse(
         Buffer.from(upstreamPaymentResponse, 'base64').toString()
-      ) as { txHash?: string; network?: string; asset?: string; amount?: string }
+      ) as { transaction?: string; network?: string }
       await supabaseAdmin.from('payments').insert({
         caller_agent_id: caller.agentId,
         target_agent_id: targetAgent.id,
         network:    decoded.network ?? 'unknown',
-        asset:      decoded.asset ?? 'unknown',
-        amount:     decoded.amount ?? '0',
+        asset:      'unknown',
+        amount:     '0',
         pay_to:     '',
-        tx_hash:    decoded.txHash ?? null,
+        tx_hash:    decoded.transaction ?? null,
         status:     'settled',
         settled_at: new Date().toISOString(),
       })
