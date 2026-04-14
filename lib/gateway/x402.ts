@@ -1,6 +1,5 @@
 import { HTTPFacilitatorClient } from '@x402/core/http'
 import {
-  decodePaymentRequiredHeader,
   decodePaymentSignatureHeader,
   encodePaymentResponseHeader,
 } from '@x402/core/http'
