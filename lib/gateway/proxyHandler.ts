@@ -23,7 +23,7 @@ export async function handleProxyRequest(
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId)
   const { data: targetAgent } = await supabaseAdmin
     .from('agents')
-    .select('id, name, url, health_status')
+    .select('id, name, url, health_status, payment_address, payment_schemes')
     .eq(isUuid ? 'id' : 'slug', slugOrId)
     .single()
 
@@ -268,7 +268,53 @@ export async function handleProxyRequest(
     // If no CDP keys configured, fall through and return the 402 transparently
   }
 
-  // 8c. Transparent settlement logging (target settled directly, returned 200 + proof)
+  // 8c. Target returned 200 with PAYMENT-SIGNATURE but no settlement proof
+  //     → relay settles on behalf using target's declared payment_schemes
+  if (paymentSignature && upstreamStatus === 200 && !upstreamPaymentResponse) {
+    const hasCdpKeys = process.env.CDP_API_KEY_ID && process.env.CDP_API_KEY_SECRET
+    const x402Scheme = (targetAgent.payment_schemes as Array<Record<string, unknown>> | null)
+      ?.find(s => s.type === 'x402')
+
+    if (hasCdpKeys && x402Scheme && targetAgent.payment_address) {
+      // Construct PAYMENT-REQUIRED from the agent's declared schemes
+      const syntheticRequired = Buffer.from(JSON.stringify({
+        x402Version: 1,
+        accepts: [{
+          scheme: 'eip712',
+          network: `eip155:${x402Scheme.network === 'base' ? '8453' : x402Scheme.network === 'base-sepolia' ? '84532' : '8453'}`,
+          asset: String(x402Scheme.asset ?? 'USDC'),
+          amount: String(x402Scheme.per_call ?? x402Scheme.amount ?? '1000'),
+          payTo: targetAgent.payment_address,
+          maxTimeoutSeconds: 60,
+        }],
+      })).toString('base64')
+
+      try {
+        const verification = await verifyPayment(paymentSignature, syntheticRequired)
+        if (verification.isValid) {
+          const settlement = await settlePayment(paymentSignature, syntheticRequired)
+          if (settlement.success) {
+            upstreamPaymentResponse = encodeSettlementHeader(settlement)
+            await supabaseAdmin.from('payments').insert({
+              caller_agent_id: caller.agentId,
+              target_agent_id: targetAgent.id,
+              network:    settlement.network ?? String(x402Scheme.network ?? 'unknown'),
+              asset:      String(x402Scheme.asset ?? 'unknown'),
+              amount:     String(x402Scheme.per_call ?? x402Scheme.amount ?? '0'),
+              pay_to:     targetAgent.payment_address,
+              tx_hash:    settlement.transaction,
+              status:     'settled',
+              settled_at: new Date().toISOString(),
+            })
+          }
+        }
+      } catch {
+        // Settlement failed silently — still return the 200 response
+      }
+    }
+  }
+
+  // 8d. Transparent settlement logging (target settled directly, returned 200 + proof)
   if (upstreamStatus === 200 && upstreamPaymentResponse && !paymentSignature) {
     try {
       const decoded = JSON.parse(
