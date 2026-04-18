@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { timeAgo } from '@/lib/utils/format'
 import { ClaimAgentForm } from '@/components/dashboard/ClaimAgentForm'
+import { ConnectionActions } from '@/components/dashboard/ConnectionActions'
 
 async function getUser() {
   const cookieStore = await cookies()
@@ -152,7 +153,10 @@ export default async function DashboardPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">&ldquo;{conn.message}&rdquo;</p>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground">{timeAgo(conn.created_at as string)}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">{timeAgo(conn.created_at as string)}</span>
+                        <ConnectionActions connectionId={conn.id as string} />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
