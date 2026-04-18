@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Separator } from '@/components/ui/separator'
 import { MobileMenu } from './MobileMenu'
+import { UserMenu } from './UserMenu'
 
 const nav = [
   { label: 'Agents', href: '/agents' },
@@ -78,6 +79,8 @@ export function Header() {
             <GitHubIcon />
             <span>Noxr3/openagora</span>
           </a>
+          <div className="mx-2 h-4 w-px bg-border" />
+          <UserMenu />
         </nav>
         {/* Mobile hamburger */}
         <MobileMenu />
