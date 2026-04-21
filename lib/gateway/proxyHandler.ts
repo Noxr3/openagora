@@ -165,32 +165,59 @@ export async function handleProxyRequest(
         )
       }
 
-      // Settle on-chain via Coinbase facilitator
+      // Settle on-chain via facilitator
       const settlement = await settlePayment(paymentSignature)
-      if (!settlement.success) {
+      const details = extractPaymentDetails(paymentSignature)
+
+      // TEMPORARY: testnet facilitators are unstable — if verify passed but settle failed,
+      // treat it as settled anyway and log for reconciliation.
+      // Remove this fallback once facilitator settlement is reliable.
+      const SETTLE_FALLBACK = process.env.X402_ALLOW_SETTLE_FALLBACK === '1'
+
+      if (settlement.success) {
+        upstreamPaymentResponse = encodeSettlementHeader(settlement)
+        forwardHeaders['payment-response'] = upstreamPaymentResponse
+
+        await supabaseAdmin.from('payments').insert({
+          caller_agent_id: caller.agentId,
+          target_agent_id: targetAgent.id,
+          network:    settlement.network ?? details.network,
+          asset:      details.asset,
+          amount:     details.amount,
+          pay_to:     details.payTo,
+          tx_hash:    settlement.transaction,
+          status:     'settled',
+          settled_at: new Date().toISOString(),
+        })
+      } else if (SETTLE_FALLBACK) {
+        // Fallback: verify passed but facilitator couldn't submit — let the request through
+        console.warn(`[x402 fallback] settle failed: ${settlement.errorReason} — forwarding anyway`)
+        upstreamPaymentResponse = encodeSettlementHeader({
+          success: true,
+          transaction: `unsettled-${requestId}`,
+          network: details.network,
+          payer: verification.payer,
+        })
+        forwardHeaders['payment-response'] = upstreamPaymentResponse
+        forwardHeaders['x-openagora-settlement-status'] = 'deferred'
+
+        await supabaseAdmin.from('payments').insert({
+          caller_agent_id: caller.agentId,
+          target_agent_id: targetAgent.id,
+          network:    details.network,
+          asset:      details.asset,
+          amount:     details.amount,
+          pay_to:     details.payTo,
+          tx_hash:    null,
+          status:     'failed',
+          settled_at: null,
+        })
+      } else {
         return Response.json(
           { error: 'Payment settlement failed', reason: settlement.errorReason },
           { status: 402, headers: { 'X-OpenAgora-Request-ID': requestId } },
         )
       }
-
-      // Settlement successful — inject proof into forward headers
-      upstreamPaymentResponse = encodeSettlementHeader(settlement)
-      forwardHeaders['payment-response'] = upstreamPaymentResponse
-
-      // Log to payments table
-      const details = extractPaymentDetails(paymentSignature)
-      await supabaseAdmin.from('payments').insert({
-        caller_agent_id: caller.agentId,
-        target_agent_id: targetAgent.id,
-        network:    settlement.network ?? details.network,
-        asset:      details.asset,
-        amount:     details.amount,
-        pay_to:     details.payTo,
-        tx_hash:    settlement.transaction,
-        status:     'settled',
-        settled_at: new Date().toISOString(),
-      })
     }
     // If no CDP keys, fall through — request forwarded without settlement
   }
