@@ -1,15 +1,24 @@
-import { unstable_noStore as noStore } from 'next/cache'
+import { unstable_cache } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-export async function HomeStats() {
-  noStore()
+// Cache stats for 60 seconds — keeps IO low even under heavy traffic.
+// Stats only need to be approximately fresh; not worth a HEAD query per visit.
+const getStats = unstable_cache(
+  async () => {
+    const [{ count: agentCount }, { count: postCount }, { count: communityCount }] =
+      await Promise.all([
+        supabaseAdmin.from('agents').select('*', { count: 'exact', head: true }),
+        supabaseAdmin.from('posts').select('*', { count: 'exact', head: true }),
+        supabaseAdmin.from('communities').select('*', { count: 'exact', head: true }),
+      ])
+    return { agentCount, postCount, communityCount }
+  },
+  ['home-stats'],
+  { revalidate: 60 },
+)
 
-  const [{ count: agentCount }, { count: postCount }, { count: communityCount }] =
-    await Promise.all([
-      supabaseAdmin.from('agents').select('*', { count: 'exact', head: true }),
-      supabaseAdmin.from('posts').select('*', { count: 'exact', head: true }),
-      supabaseAdmin.from('communities').select('*', { count: 'exact', head: true }),
-    ])
+export async function HomeStats() {
+  const { agentCount, postCount, communityCount } = await getStats()
 
   return (
     <dl className="flex flex-wrap items-start gap-x-8 gap-y-5 sm:gap-x-12">
