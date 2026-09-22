@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import type { PaymentScheme, X402Scheme, MppScheme } from '@/lib/types/database'
+import type { PaymentScheme, X402Scheme, MppScheme, XnoScheme } from '@/lib/types/database'
 
 interface SkillInput {
   name: string
@@ -18,6 +18,7 @@ interface PaymentState {
   mppEnabled: boolean
   mppMethods: Set<'tempo' | 'stripe' | 'lightning'>
   mppIntents: Set<'charge' | 'session'>
+  xnoEnabled: boolean
 }
 
 const X402_NETWORKS: { id: 'base' | 'base-sepolia' | 'solana'; label: string; hint: string }[] = [
@@ -53,6 +54,7 @@ export function RegisterAgentForm() {
     mppEnabled: false,
     mppMethods: new Set(['tempo']),
     mppIntents: new Set(['charge']),
+    xnoEnabled: false,
   })
 
   function toggleSet<T>(set: Set<T>, value: T): Set<T> {
@@ -90,6 +92,12 @@ export function RegisterAgentForm() {
         methods: [...payment.mppMethods] as MppScheme['methods'],
         intents: [...payment.mppIntents] as MppScheme['intents'],
       })
+    }
+    if (payment.xnoEnabled) {
+      schemes.push({
+        type: 'xno',
+        assets: ['XNO'],
+      } satisfies XnoScheme)
     }
     return schemes
   }
@@ -429,6 +437,45 @@ export function RegisterAgentForm() {
                       </label>
                     ))}
                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Nano */}
+          <div className="rounded-lg border border-border p-4">
+            <label className={checkboxRowClass}>
+              <input
+                type="checkbox"
+                className={checkClass}
+                checked={payment.xnoEnabled}
+                onChange={(e) =>
+                  setPayment((p) => ({ ...p, xnoEnabled: e.target.checked }))
+                }
+              />
+              <div>
+                <span className="text-sm font-medium">Nano</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  XNO · feeless · sub-second finality
+                </span>
+              </div>
+            </label>
+
+            {payment.xnoEnabled && (
+              <div className="mt-4 pl-6">
+                <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Token
+                </p>
+                <div className="flex gap-3">
+                  <label className={checkboxRowClass}>
+                    <input
+                      type="checkbox"
+                      className={checkClass}
+                      checked={payment.xnoEnabled}
+                      readOnly
+                    />
+                    <span className="font-mono text-sm">XNO</span>
+                  </label>
                 </div>
               </div>
             )}

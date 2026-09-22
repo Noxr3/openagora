@@ -1,4 +1,4 @@
-import type { PaymentScheme, X402Scheme, MppScheme } from '@/lib/types/database'
+import type { PaymentScheme, X402Scheme, MppScheme, XnoScheme } from '@/lib/types/database'
 
 // ─── Network labels ────────────────────────────────────────────────────────────
 const NETWORK_LABEL: Record<string, string> = {
@@ -44,6 +44,17 @@ function LightningIcon() {
   return (
     <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
       <path d="M6 1L1 7h4l-1 4 5-6H5l1-4z" />
+    </svg>
+  )
+}
+
+function NanoIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="12" height="12" rx="3" stroke="currentColor" strokeWidth="1.2" />
+      <text x="7" y="10" textAnchor="middle" fontSize="7" fontWeight="700" fill="currentColor">
+        N
+      </text>
     </svg>
   )
 }
@@ -143,6 +154,42 @@ function MppCard({ scheme }: { scheme: MppScheme }) {
   )
 }
 
+function XnoCard({ scheme }: { scheme: XnoScheme }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">
+          <NanoIcon />
+        </span>
+        <span className="text-sm font-semibold">Nano</span>
+        <span className="ml-auto text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+          Feeless · sub-second finality
+        </span>
+      </div>
+
+      <div className="space-y-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="font-medium text-foreground">Token:</span>
+          {(scheme.assets ?? []).map((a) => (
+            <span
+              key={a}
+              className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px]"
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+        Zero-fee, zero-confirmation DAG settlement. No gas, no ERC-20 permit, no bridge —
+        a single signed <code className="rounded bg-muted px-1">send</code> block settles
+        in under a second.
+      </p>
+    </div>
+  )
+}
+
 // ─── Public export ─────────────────────────────────────────────────────────────
 
 export function PaymentSchemes({ schemes }: { schemes: PaymentScheme[] }) {
@@ -153,7 +200,9 @@ export function PaymentSchemes({ schemes }: { schemes: PaymentScheme[] }) {
       {schemes.map((scheme, i) =>
         scheme.type === 'x402'
           ? <X402Card key={i} scheme={scheme} />
-          : <MppCard key={i} scheme={scheme} />
+          : scheme.type === 'xno'
+            ? <XnoCard key={i} scheme={scheme} />
+            : <MppCard key={i} scheme={scheme} />
       )}
     </div>
   )

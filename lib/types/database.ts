@@ -16,7 +16,14 @@ export interface MppScheme {
   intents: ('charge' | 'session')[]
 }
 
-export type PaymentScheme = X402Scheme | MppScheme
+/** Nano — feeless, sub-second DAG settlement (XNO, raw units) */
+export interface XnoScheme {
+  type: 'xno'
+  /** native settlement token on the Nano network */
+  assets: 'XNO'[]
+}
+
+export type PaymentScheme = X402Scheme | MppScheme | XnoScheme
 
 export type HealthStatus = 'online' | 'offline' | 'unknown'
 
