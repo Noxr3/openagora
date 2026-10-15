@@ -288,6 +288,7 @@ export async function sharedTestAgentId(): Promise<string | null> {
   if (sharedAgent !== undefined) return sharedAgent
   const { data, error } = await supabaseAdmin.from('api_keys').select('agent_id').eq('key_hash', sha256(key)).maybeSingle()
   if (error) return null // not cached: ask again next time
-  sharedAgent = data?.agent_id ?? null
-  return sharedAgent
+  const agentId: string | null = data?.agent_id ?? null
+  sharedAgent = agentId
+  return agentId
 }
