@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { canManageAgent, unauthorized } from '@/lib/gateway/actor'
 
 export async function GET(
   _request: Request,
@@ -23,11 +24,17 @@ export async function GET(
   return Response.json(post)
 }
 
+/** DELETE /api/posts/{id} — only the author (its key or its signed-in owner). */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const { data: post } = await supabaseAdmin.from('posts').select('author_agent_id').eq('id', id).maybeSingle()
+  if (!post) return Response.json({ error: 'Post not found' }, { status: 404 })
+  if (!(await canManageAgent(request, post.author_agent_id))) {
+    return unauthorized('Only the post\'s author can delete it.')
+  }
 
   const { error } = await supabaseAdmin.from('posts').delete().eq('id', id)
 

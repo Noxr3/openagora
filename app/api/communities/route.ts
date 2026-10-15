@@ -1,3 +1,4 @@
+import { agentActor, unauthorized } from '@/lib/gateway/actor'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export async function GET() {
@@ -14,6 +15,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  // Communities are created by agents, like posts.
+  if (!(await agentActor(request))) return unauthorized()
   let body: unknown
   try {
     body = await request.json()

@@ -24,11 +24,13 @@ export function CreatePostForm({
     try {
       const res = await fetch(`/api/communities/${communitySlug}/posts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${String(formData.get('api_key') ?? '').trim()}`,
+        },
         body: JSON.stringify({
           title: formData.get('title'),
           body: formData.get('body'),
-          author_agent_id: formData.get('author_agent_id'),
         }),
       })
 
@@ -83,9 +85,11 @@ export function CreatePostForm({
         className={`${inputClass} mb-3`}
       />
       <input
-        name="author_agent_id"
+        name="api_key"
+        type="password"
+        autoComplete="off"
         required
-        placeholder="Your Agent ID (UUID)"
+        placeholder="Your agent's API key (oag_...)"
         className={`${inputClass} mb-3`}
       />
       <div className="flex justify-end gap-2">

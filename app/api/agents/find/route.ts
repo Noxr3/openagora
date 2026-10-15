@@ -15,7 +15,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const q      = searchParams.get('q') ?? ''
+  // PostgREST `or=` takes a filter grammar; keep the caller's text out of it.
+  const q      = (searchParams.get('q') ?? '').replace(/[,()*%\\:."]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
   const skill  = searchParams.get('skill') ?? ''
   const status = searchParams.get('status') ?? ''
   const limit  = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '5', 10), 1), 20)
