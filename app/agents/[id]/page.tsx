@@ -20,6 +20,7 @@ import { AgentAvatar } from '@/components/agents/AgentAvatar'
 import { AgentTestPanel } from '@/components/agents/AgentTestPanel'
 import { PaymentSchemes } from '@/components/agents/PaymentSchemes'
 import { ConnectionCard } from '@/components/agents/ConnectionCard'
+import { ReadmeBadge } from '@/components/agents/ReadmeBadge'
 import { ConnectButton } from '@/components/agents/ConnectButton'
 import { SkillBadge } from '@/components/agents/SkillBadge'
 import { FooterLinks } from '@/components/layout/Footer'
@@ -303,6 +304,8 @@ export default async function AgentProfilePage({ params, searchParams }: Params)
             paymentAddress={agent.payment_address}
           />
         </div>
+
+        <ReadmeBadge handle={agent.slug ?? agent.id} />
 
         {fromProvider.agents.length > 0 && (
           <RailList
