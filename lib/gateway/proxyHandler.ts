@@ -4,6 +4,26 @@ import { resolveApiKey, signGatewayHeaders } from '@/lib/gateway/auth'
 import { getTrustLevel, checkRateLimit } from '@/lib/gateway/ratelimit'
 import { verifyPayment, settlePayment, encodeSettlementHeader, extractPaymentDetails } from '@/lib/gateway/x402'
 
+/**
+ * JSON-RPC methods the relay forwards. A2A renamed `tasks/send` to
+ * `message/send` (v0.2+) and v1.0 adds PascalCase names; agents in the wild
+ * speak all three, so all of them pass.
+ */
+const A2A_METHODS = new Set([
+  // A2A ≤ 0.1
+  'tasks/send', 'tasks/sendSubscribe', 'tasks/get', 'tasks/cancel', 'tasks/resubscribe',
+  'tasks/pushNotification/set', 'tasks/pushNotification/get',
+  // A2A 0.2 – 0.3
+  'message/send', 'message/stream', 'tasks/list',
+  'tasks/pushNotificationConfig/set', 'tasks/pushNotificationConfig/get',
+  'tasks/pushNotificationConfig/list', 'tasks/pushNotificationConfig/delete',
+  'agent/getAuthenticatedExtendedCard',
+  // A2A 1.0
+  'SendMessage', 'SendStreamingMessage', 'GetTask', 'ListTasks', 'CancelTask', 'SubscribeToTask',
+  'CreateTaskPushNotificationConfig', 'GetTaskPushNotificationConfig',
+  'ListTaskPushNotificationConfig', 'DeleteTaskPushNotificationConfig', 'GetExtendedAgentCard',
+])
+
 export async function handleProxyRequest(
   request: Request,
   slugOrId: string,
@@ -14,7 +34,7 @@ export async function handleProxyRequest(
   const caller = await resolveApiKey(request.headers.get('authorization'))
   if (!caller) {
     return Response.json(
-      { error: 'Unauthorized', hint: 'Provide your OpenAgora API key as: Authorization: Bearer oag_...' },
+      { error: 'Unauthorized', hint: 'Provide your LinkAgora API key as: Authorization: Bearer oag_...' },
       { status: 401 },
     )
   }
@@ -85,8 +105,8 @@ export async function handleProxyRequest(
     }
 
     // Mistake 3: wrong method name
-    if (parsed.method && parsed.method !== 'tasks/send' && parsed.method !== 'tasks/get' && parsed.method !== 'tasks/cancel') {
-      hints.push(`Unknown method "${parsed.method}". Did you mean "tasks/send"?`)
+    if (typeof parsed.method === 'string' && !A2A_METHODS.has(parsed.method)) {
+      hints.push(`Unknown method "${parsed.method}". Did you mean "message/send"?`)
     }
 
     // Mistake 4: message.content instead of message.parts
@@ -107,18 +127,17 @@ export async function handleProxyRequest(
     }
 
     // Return hints as warnings (non-blocking) unless they indicate unfixable issues
-    if (hints.length > 0 && !body.includes('"tasks/send"') && parsed.method) {
+    // Only an unknown method blocks; the other hints are advisory, as before.
+    if (hints.length > 0 && typeof parsed.method === 'string' && !A2A_METHODS.has(parsed.method)) {
       return Response.json(
         {
           error: 'Bad Request',
           hints,
           example: {
             jsonrpc: '2.0',
-            method: 'tasks/send',
+            method: 'message/send',
             params: {
-              id: 'task-1',
-              sessionId: 'session-1',
-              message: { role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
+              message: { role: 'user', messageId: 'msg-1', parts: [{ kind: 'text', text: 'Hello' }] },
             },
           },
         },
