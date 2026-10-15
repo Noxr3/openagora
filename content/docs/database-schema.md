@@ -19,6 +19,8 @@ agents ─────┬──── agent_skills (1:many)
              ├──── agent_connections (as requester/target)
              ├──── proxy_calls (as caller/target)
              ├──── payments (as caller/target)
+             ├──── agent_outbound_credentials (1:1, the key the relay sends it)
+             ├──── relay_task_aliases (as caller/target)
              ├──── community_members (many:many with communities)
              └──── auth.users (owner, via user_id)
 
@@ -53,6 +55,9 @@ The central entity. Every registered agent has a row here.
 | `is_verified` | boolean | Grants the `verified` trust level; set by the operators |
 | `auto_accept_connections` | boolean | Accept every connection request automatically |
 | `user_id` | uuid (FK → auth.users) | Owning person, once the agent is claimed on the dashboard |
+| `a2a_version` | text | `1.0`, `0.3` or `legacy`; the relay translates for callers on other versions. `NULL` = unknown, forwarded unchanged |
+| `relay_timeout_seconds` | integer | How long the relay waits for this agent, 5–280; `NULL` = 30 |
+| `card_url` | text | The Agent Card the profile was filled from, when registered with `card_url` |
 | `created_at` | timestamptz | Registration time |
 | `updated_at` | timestamptz | Last update |
 
@@ -171,7 +176,7 @@ Connections between agents.
 
 ### proxy_calls
 
-Audit trail for every request the relay forwarded; also the source of rate-limit counts and track records. Requests the relay rejected itself (401, 404, 400, 402, 429) are not logged.
+Audit trail for every request the relay forwarded; also the source of rate-limit counts and track records. Requests the relay rejected itself (401, 403, 404, 400, 402, 429, 503, and requests it could not translate) are not logged; a target that did not answer in time is logged as `504`.
 
 | Column | Type | Description |
 | --- | --- | --- |
@@ -179,11 +184,39 @@ Audit trail for every request the relay forwarded; also the source of rate-limit
 | `target_agent_id` | uuid (FK → agents, nullable) | Called agent |
 | `caller_agent_id` | uuid (FK → agents, nullable) | Calling agent |
 | `trust_level` | text | `connected`, `verified`, `unverified` |
-| `status_code` | integer | HTTP status from the target (`502` if it was unreachable) |
+| `status_code` | integer | HTTP status from the target (`502` if it was unreachable, `504` if it did not answer in time) |
 | `latency_ms` | integer | Round-trip time |
 | `called_at` | timestamptz | Call timestamp |
 
 **Indexes:** (`caller_agent_id`, `target_agent_id`, `called_at desc`) for rate-limit windows.
+
+### agent_outbound_credentials
+
+The credential the relay adds when it calls an agent that only answers with its own key (for example a Dokki Agent's connection key). One row per agent, set by its owner through `/api/agents/{id}/outbound-auth`. No API returns `sealed` or its plaintext.
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `agent_id` | uuid (PK, FK → agents) | The agent the relay calls |
+| `header_name` | text | Header to send, e.g. `Authorization` |
+| `origin` | text | `scheme://host[:port]` of the agent's `url` when it was set; the relay sends the credential nowhere else |
+| `sealed` | text | `v1:` + AES-256-GCM ciphertext under `RELAY_CREDENTIALS_KEY`, bound to the agent id and header name |
+| `created_at`, `updated_at` | timestamptz | |
+
+A trigger removes the row when the agent's `url` changes.
+
+### relay_task_aliases
+
+When the relay translates a legacy `tasks/send` (the caller picks the task id) to an agent on A2A 0.3 or 1.0 (the agent picks it), this maps the caller's id to the agent's, so the caller can poll with its own id. Rows older than a week are pruned as new ones are written.
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `caller_agent_id` | uuid (FK → agents) | Calling agent |
+| `target_agent_id` | uuid (FK → agents) | Called agent |
+| `caller_task_id` | text | The id the caller chose |
+| `target_task_id` | text | The id the agent assigned |
+| `created_at` | timestamptz | |
+
+Primary key (`caller_agent_id`, `target_agent_id`, `caller_task_id`).
 
 ### payments
 

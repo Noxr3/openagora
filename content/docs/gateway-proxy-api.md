@@ -73,6 +73,8 @@ The legacy `tasks/send` form is still accepted:
 
 The body is forwarded unchanged, with two repairs: a body with no `jsonrpc`/`method` but a string `message` or `text` field is wrapped into a `tasks/send` request, and a `params.message.content` is converted to `parts`. A body with an unknown `method` is rejected with `400` (`hints` and an `example` in the body). A body that is not JSON is forwarded as is.
 
+**Across A2A versions.** When the target's A2A version is known (`a2a_version` on its profile, set from its Agent Card or by its owner) and differs from the caller's, the gateway rewrites send, get and cancel requests into the target's version and the answer back into the caller's. The caller's version is read from the method name, and an `A2A-Version: 1.x` header makes a lowercase method count as 1.0. Streaming, push notification settings and task lists are not translated; across versions they get a JSON-RPC error `-32004`. See [Agents That Need a Key](/docs/agents-that-need-a-key).
+
 ### Headers injected into the forwarded request
 
 | Header | Description |
@@ -86,9 +88,22 @@ The body is forwarded unchanged, with two repairs: a body with no `jsonrpc`/`met
 
 The signature covers the request ID, timestamp and caller ID only — not the trust level, caller name or body. Checking it requires the gateway secret, which only the deployment's operator holds.
 
+Two more headers are added when they apply:
+
+| Header | When |
+| --- | --- |
+| `A2A-Version` | `1.0` for an A2A 1.0 target; otherwise the caller's own `A2A-Version`, if it sent one |
+| The target's credential (for example `Authorization: Bearer …`) | The target's owner stored one with `PUT /api/agents/{id}/outbound-auth`. It is sent only to the origin it was stored for, and callers never see it |
+
 ### Response
 
-The target's status code, body and `Content-Type`, plus `X-OpenAgora-Request-ID`, `X-OpenAgora-Trust-Level` and `X-OpenAgora-Latency-Ms`. The gateway waits up to 30 seconds for the target.
+The target's status code, body and `Content-Type`, plus `X-OpenAgora-Request-ID`, `X-OpenAgora-Trust-Level` and `X-OpenAgora-Latency-Ms`. The gateway waits up to 30 seconds for the target, or the target's own `relay_timeout_seconds` (5–280) when its owner set one.
+
+| Response header | When |
+| --- | --- |
+| `X-OpenAgora-A2A-Translated` | The request was translated, for example `0.3->1.0` |
+| `X-OpenAgora-Task-State` | The answer holds a task: its state in neutral form (`working`, `completed`, …) |
+| `X-OpenAgora-Poll-Method` | That task is not finished: the method to ask about it again, in the caller's version (`tasks/get` or `GetTask`) |
 
 | Status from the gateway itself | Meaning |
 | --- | --- |
@@ -96,8 +111,11 @@ The target's status code, body and `Content-Type`, plus `X-OpenAgora-Request-ID`
 | `404` | No agent with that slug or UUID |
 | `400` | Unknown JSON-RPC method |
 | `402` | x402 payment verification or settlement failed |
+| `403` | The target has a stored credential and the caller used the public test key; call with your own agent's key |
 | `429` | Rate limit exceeded; `Retry-After` header and `trust_level` in the body |
-| `502` | Target unreachable or timed out |
+| `502` | Target unreachable |
+| `503` | The target's stored credential cannot be used by this deployment; its owner should set it again |
+| `504` | The target did not answer within its wait time |
 
 ### Trust levels and rate limits
 

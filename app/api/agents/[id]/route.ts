@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { resolveApiKey } from '@/lib/gateway/auth'
+import { parseA2AVersion, parseRelayTimeout } from '@/lib/agents/relay-settings'
+import { hasOutboundCredential } from '@/lib/gateway/credentials'
 
 export async function GET(
   _request: Request,
@@ -25,7 +27,9 @@ export async function GET(
  * Update an agent's info. Auth required — caller must own this agent.
  *
  * Updatable fields: name, description, provider, url, avatar_url,
- * capabilities, payment_schemes, skills (full replace)
+ * capabilities, payment_schemes, a2a_version, relay_timeout_seconds,
+ * skills (full replace). Changing url removes the stored outbound credential
+ * (it was pinned to the old endpoint).
  */
 const UPDATABLE = ['name', 'description', 'provider', 'url', 'avatar_url', 'capabilities', 'payment_schemes', 'payment_address'] as const
 
@@ -51,8 +55,19 @@ export async function PUT(
   for (const key of UPDATABLE) {
     if (key in body) updates[key] = body[key]
   }
+  if ('a2a_version' in body) {
+    const version = parseA2AVersion(body.a2a_version)
+    if (!version.ok) return Response.json({ error: version.error }, { status: 400 })
+    updates.a2a_version = version.value
+  }
+  if ('relay_timeout_seconds' in body) {
+    const timeout = parseRelayTimeout(body.relay_timeout_seconds)
+    if (!timeout.ok) return Response.json({ error: timeout.error }, { status: 400 })
+    updates.relay_timeout_seconds = timeout.value
+  }
 
   // URL uniqueness check
+  let credentialDropped = false
   if (updates.url) {
     const { data: existing } = await supabaseAdmin
       .from('agents')
@@ -63,6 +78,9 @@ export async function PUT(
     if (existing) {
       return Response.json({ error: 'An agent with this endpoint URL is already registered' }, { status: 409 })
     }
+    // The URL-change trigger (migration 017) removes a credential pinned to the old URL.
+    const { data: current } = await supabaseAdmin.from('agents').select('url').eq('id', id).maybeSingle()
+    credentialDropped = current?.url !== updates.url && (await hasOutboundCredential(id))
   }
 
   if (Object.keys(updates).length === 0 && !body.skills) {
@@ -104,5 +122,13 @@ export async function PUT(
     .eq('id', id)
     .single()
 
-  return Response.json(updated)
+  return Response.json(
+    credentialDropped
+      ? {
+          ...updated,
+          outbound_auth: { configured: false, removed: true },
+          hint: `The endpoint changed, so its stored credential was removed. Set it again with PUT /api/agents/${id}/outbound-auth.`,
+        }
+      : updated,
+  )
 }

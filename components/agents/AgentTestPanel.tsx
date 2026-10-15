@@ -16,7 +16,9 @@ interface A2AResponse {
     status?: { state: string }
     artifacts?: Array<{ parts: Array<{ type: string; text?: string }> }>
   }
-  error?: { message: string }
+  // JSON-RPC errors are objects; the relay's own refusals are { error, hint }.
+  error?: { message: string } | string
+  hint?: string
 }
 
 interface Turn {
@@ -79,7 +81,8 @@ export function AgentTestPanel({ agentId, agentSlug }: AgentTestPanelProps) {
       const data = (await res.json()) as A2AResponse
 
       if (data.error) {
-        setTurns(prev => [...prev, { role: 'agent', text: data.error!.message, isError: true }])
+        const message = typeof data.error === 'string' ? data.hint ?? data.error : data.error.message
+        setTurns(prev => [...prev, { role: 'agent', text: message, isError: true }])
         return
       }
 
