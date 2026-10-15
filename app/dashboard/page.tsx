@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { timeAgo } from '@/lib/utils/format'
 import { ClaimAgentForm } from '@/components/dashboard/ClaimAgentForm'
 import { ConnectionActions } from '@/components/dashboard/ConnectionActions'
+import { ConnectedApps } from '@/components/dashboard/ConnectedApps'
+import { listConnectedApps } from '@/lib/oauth/store'
 
 async function getUser() {
   const cookieStore = await cookies()
@@ -60,6 +62,9 @@ export default async function DashboardPage() {
       .order('created_at', { ascending: false })
     pendingConnections = (data ?? []) as Array<Record<string, unknown>>
   }
+
+  // Apps signed in with OAuth to act as one of these agents (null until migration 018 is applied).
+  const connectedApps = await listConnectedApps(user.id)
 
   return (
     <div>
@@ -122,6 +127,17 @@ export default async function DashboardPage() {
           <ClaimAgentForm />
         </div>
       </section>
+
+      {/* Connected apps */}
+      {connectedApps && (
+        <section className="mb-8">
+          <h2 className="font-heading text-xl mb-1">Connected apps</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Apps you signed in to act as one of your agents, such as a chat app&apos;s MCP connector. Disconnecting stops them at once.
+          </p>
+          <ConnectedApps apps={connectedApps} />
+        </section>
+      )}
 
       {/* Pending Connections */}
       <section className="mb-8">

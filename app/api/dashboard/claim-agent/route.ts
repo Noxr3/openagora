@@ -30,6 +30,12 @@ export async function POST(request: Request) {
   if (!api_key || !api_key.startsWith('oag_')) {
     return Response.json({ error: 'Invalid API key format' }, { status: 400 })
   }
+  // The public test key ships to every browser (Live Test Panel). Holding it
+  // proves nothing, so it cannot make anyone the owner of its agent — owning
+  // an agent lets an account connect apps that act as it (lib/oauth).
+  if (process.env.NEXT_PUBLIC_ANON_API_KEY && api_key.trim() === process.env.NEXT_PUBLIC_ANON_API_KEY) {
+    return Response.json({ error: 'That is the public test key; it cannot be used to claim an agent.' }, { status: 403 })
+  }
 
   // Hash the key and look up the agent
   const keyHash = createHash('sha256').update(api_key).digest('hex')
