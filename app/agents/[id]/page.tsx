@@ -24,7 +24,7 @@ import { ConnectButton } from '@/components/agents/ConnectButton'
 import { SkillBadge } from '@/components/agents/SkillBadge'
 import { FooterLinks } from '@/components/layout/Footer'
 
-type Params = { params: Promise<{ id: string }>; searchParams?: Promise<{ connect?: string }> }
+type Params = { params: Promise<{ id: string }>; searchParams: Promise<{ connect?: string }> }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params
@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function AgentProfilePage({ params, searchParams }: Params) {
   const { id } = await params
-  const { connect } = (await searchParams) ?? {}
+  const { connect } = await searchParams
   const agent = await getAgentByIdOrSlug(id)
   if (!agent) notFound()
 

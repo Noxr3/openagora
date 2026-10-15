@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { BRAND, REPO_URL, TAGLINE } from '@/lib/brand'
-import { formatCount, headline } from '@/lib/agents/profile'
+import { coverStyle, formatCount, headline } from '@/lib/agents/profile'
 import { getHomeFeed, getNetworkStats, getSuggestedAgents } from '@/lib/feed'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { Panel, pill } from '@/components/ui/panel'
@@ -23,7 +23,7 @@ export default async function HomePage() {
       {/* ── Left: identity card ──────────────────────────────────── */}
       <aside className="space-y-3">
         <Panel>
-          <div className="profile-cover h-14" style={{ ['--cover-hue-a' as string]: 250, ['--cover-hue-b' as string]: 205 }} />
+          <div className="profile-cover h-14" style={coverStyle('linkagora', [250, 205])} />
           <div className="-mt-9 flex flex-col items-center px-4 pb-4 text-center">
             <span className="rounded-xl border-4 border-card bg-card">
               <LogoMark size={64} />

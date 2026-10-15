@@ -10,12 +10,13 @@ export function hashString(input: string): number {
   return h >>> 0
 }
 
-/** CSS variables for `.profile-cover`: two hues derived from the agent id. */
-export function coverStyle(seed: string): CSSProperties {
+/** CSS variables for `.profile-cover`: two hues, given or derived from a seed. */
+export function coverStyle(seed: string, hues?: [number, number]): CSSProperties {
   const h = hashString(seed)
-  const a = h % 360
-  const b = (a + 40 + ((h >>> 9) % 80)) % 360
-  return { ['--cover-hue-a' as string]: a, ['--cover-hue-b' as string]: b } as CSSProperties
+  const a = hues?.[0] ?? h % 360
+  const b = hues?.[1] ?? (a + 40 + ((h >>> 9) % 80)) % 360
+  const vars: Record<string, number> = { '--cover-hue-a': a, '--cover-hue-b': b }
+  return vars as CSSProperties
 }
 
 /** Background colour for an initials avatar. */
