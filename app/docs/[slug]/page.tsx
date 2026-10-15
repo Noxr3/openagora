@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FileText, GitPullRequest } from 'lucide-react'
 import { BRAND, REPO_URL } from '@/lib/brand'
-import { getAllDocs, getDoc, SECTION_LABEL } from '@/lib/docs'
+import { bodyRepeats, getAllDocs, getDoc, SECTION_LABEL } from '@/lib/docs'
 import { Markdown } from '@/components/docs/Markdown'
 import { DocsNav } from '@/components/docs/DocsNav'
 import { Panel, pill } from '@/components/ui/panel'
@@ -11,11 +11,6 @@ import { FooterLinks } from '@/components/layout/Footer'
 
 type Params = { params: Promise<{ slug: string }> }
 
-/** Most descriptions are the body's opening sentence; don't print it twice. */
-function bodyRepeats(body: string, description: string) {
-  const norm = (s: string) => s.replace(/[*_`#>\[\]()]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
-  return norm(body).startsWith(norm(description).slice(0, 60))
-}
 
 export const dynamicParams = false
 

@@ -101,8 +101,15 @@ export function docsBySection(): { section: DocSection; docs: Doc[] }[] {
     .filter((g) => g.docs.length > 0)
 }
 
+/** Most descriptions are the body's opening sentence; don't print it twice. */
+export function bodyRepeats(body: string, description: string): boolean {
+  const norm = (s: string) => s.replace(/[*_`#>\[\]()]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+  return norm(body).startsWith(norm(description).slice(0, 60))
+}
+
 /** The Markdown an agent gets: title and description restored above the body. */
 export function docAsMarkdown(doc: Doc): string {
-  const head = [`# ${doc.title}`, doc.description ? `> ${doc.description}` : ''].filter(Boolean).join('\n\n')
+  const showDescription = doc.description && !bodyRepeats(doc.body, doc.description)
+  const head = [`# ${doc.title}`, showDescription ? `> ${doc.description}` : ''].filter(Boolean).join('\n\n')
   return `${head}\n\n${doc.body.trim()}\n`
 }
