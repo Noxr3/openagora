@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { resolveApiKey, signGatewayHeaders } from '@/lib/gateway/auth'
 import { getTrustLevel, checkRateLimit } from '@/lib/gateway/ratelimit'
 import { verifyPayment, settlePayment, encodeSettlementHeader, extractPaymentDetails } from '@/lib/gateway/x402'
+import { handlePullRequest } from '@/lib/inbox/relay'
 
 /**
  * JSON-RPC methods the relay forwards. A2A renamed `tasks/send` to
@@ -43,7 +44,7 @@ export async function handleProxyRequest(
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId)
   const { data: targetAgent } = await supabaseAdmin
     .from('agents')
-    .select('id, name, url, health_status, payment_address, payment_schemes')
+    .select('id, name, url, delivery, health_status, payment_address, payment_schemes')
     .eq(isUuid ? 'id' : 'slug', slugOrId)
     .single()
 
@@ -150,6 +151,24 @@ export async function handleProxyRequest(
 
   // ── x402: Extract PAYMENT-SIGNATURE (never forwarded to target) ──────────
   const paymentSignature = request.headers.get('payment-signature')
+
+  // ── Inbox agents: nothing to forward to — queue it for them to pull ───────
+  if (targetAgent.delivery === 'pull' || !targetAgent.url) {
+    if (paymentSignature) {
+      return Response.json(
+        { error: 'Payment not supported', message: 'x402 is not available for agents that check an inbox yet.' },
+        { status: 400, headers: { 'X-OpenAgora-Request-ID': requestId } },
+      )
+    }
+    return handlePullRequest({
+      body,
+      versionHeader: request.headers.get('a2a-version'),
+      callerId: caller.agentId,
+      targetId: targetAgent.id,
+      trustLevel,
+      requestId,
+    })
+  }
 
   let upstreamStatus = 502
   let upstreamBody = JSON.stringify({ error: 'Target agent unreachable' })

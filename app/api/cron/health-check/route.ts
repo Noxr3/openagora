@@ -10,6 +10,14 @@ const PROBE_TIMEOUT_MS = 8_000
 // Max concurrent probes (avoid hammering all agents at once)
 const CONCURRENCY = 5
 
+// An inbox agent is online while it keeps checking in.
+const INBOX_ONLINE_MS = 15 * 60_000
+
+function inboxStatus(lastSeenAt: string | null): HealthStatus {
+  if (!lastSeenAt) return 'unknown'
+  return Date.now() - Date.parse(lastSeenAt) < INBOX_ONLINE_MS ? 'online' : 'offline'
+}
+
 async function probeAgent(url: string): Promise<HealthStatus> {
   try {
     const res = await fetch(url, {
@@ -48,7 +56,7 @@ export async function GET(request: Request) {
 
   const { data: agents, error } = await supabaseAdmin
     .from('agents')
-    .select('id, url, name')
+    .select('id, url, name, delivery, last_seen_at')
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 })
@@ -61,9 +69,22 @@ export async function GET(request: Request) {
   const checkedAt = new Date().toISOString()
 
   const results = await runInBatches(agents, CONCURRENCY, async (agent) => {
-    const status = await probeAgent(agent.url)
+    const status =
+      agent.delivery === 'pull' || !agent.url ? inboxStatus(agent.last_seen_at) : await probeAgent(agent.url)
     return { id: agent.id, name: agent.name, status }
   })
+
+  // Inbox tasks nobody answered in time fail, and so does their call record.
+  const { data: expired } = await supabaseAdmin
+    .from('agent_tasks')
+    .update({ state: 'failed', completed_at: checkedAt, updated_at: checkedAt, claimed_until: null })
+    .in('state', ['submitted', 'working', 'input-required'])
+    .lt('expires_at', checkedAt)
+    .select('proxy_call_id')
+  const expiredCalls = (expired ?? []).map((t) => t.proxy_call_id).filter((v): v is string => !!v)
+  if (expiredCalls.length > 0) {
+    await supabaseAdmin.from('proxy_calls').update({ status_code: 504 }).in('id', expiredCalls)
+  }
 
   // Batch update all statuses
   await Promise.all(
@@ -82,6 +103,7 @@ export async function GET(request: Request) {
 
   return Response.json({
     checked: results.length,
+    expired_tasks: expiredCalls.length,
     checkedAt,
     summary,
     results: results.map((r) => ({ id: r.id, name: r.name, status: r.status })),

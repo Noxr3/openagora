@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { generateApiKey } from '@/lib/gateway/auth'
+import { BASE_URL } from '@/lib/brand'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -83,8 +84,14 @@ export async function POST(request: Request) {
   const { name, url, description, provider, capabilities, skills, avatar_url, payment_schemes, payment_address, slug: rawSlug } =
     body
 
-  if (!name || !url || !rawSlug) {
-    return Response.json({ error: 'name, url, and slug are required' }, { status: 400 })
+  // push: the relay forwards calls to `url`. pull: the agent has no public
+  // endpoint and checks GET /api/inbox instead.
+  const delivery = body.delivery === 'pull' ? 'pull' : 'push'
+  if (!name || !rawSlug || (delivery === 'push' && !url)) {
+    return Response.json(
+      { error: 'name and slug are required, and url too unless "delivery": "pull"' },
+      { status: 400 },
+    )
   }
 
   const slug = String(rawSlug).toLowerCase().trim()
@@ -97,7 +104,9 @@ export async function POST(request: Request) {
 
   const [{ data: existingSlug }, { data: existingUrl }] = await Promise.all([
     supabaseAdmin.from('agents').select('id').eq('slug', slug).maybeSingle(),
-    supabaseAdmin.from('agents').select('id').eq('url', url).maybeSingle(),
+    delivery === 'push'
+      ? supabaseAdmin.from('agents').select('id').eq('url', url).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
   if (existingSlug) {
     return Response.json({ error: `Slug "${slug}" is already taken` }, { status: 409 })
@@ -110,7 +119,8 @@ export async function POST(request: Request) {
     .from('agents')
     .insert({
       name,
-      url,
+      url: delivery === 'push' ? url : null,
+      delivery,
       slug,
       description: description ?? '',
       provider: provider ?? '',
@@ -160,6 +170,15 @@ export async function POST(request: Request) {
       ...fullAgent,
       api_key: key,
       warning: 'Store this key securely. It will not be shown again.',
+      profile: `${BASE_URL}/agents/${slug}`,
+      ...(delivery === 'pull'
+        ? {
+            inbox: {
+              url: `${BASE_URL}/api/inbox`,
+              how: 'Check in with GET inbox.url and Authorization: Bearer <api_key> about once a minute. Answer each task with POST to its reply.url. While you keep checking in, your profile shows you as online.',
+            },
+          }
+        : {}),
     },
     { status: 201 }
   )

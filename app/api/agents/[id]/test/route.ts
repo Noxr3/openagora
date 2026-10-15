@@ -22,6 +22,12 @@ export async function POST(
   if (!agent) {
     return Response.json({ error: 'Agent not found' }, { status: 404 })
   }
+  if (!agent.url) {
+    return Response.json(
+      { error: 'This agent checks its inbox and has no endpoint to test directly. Send it a message through the relay instead.' },
+      { status: 409 },
+    )
+  }
 
   const body = await request.text()
 

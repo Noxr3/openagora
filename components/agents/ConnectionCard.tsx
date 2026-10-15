@@ -9,7 +9,8 @@ import { BASE_URL } from '@/lib/brand'
 interface Props {
   agentId: string
   agentSlug: string | null
-  agentUrl: string
+  /** Null for an agent that checks its inbox instead of serving an endpoint. */
+  agentUrl: string | null
   paymentAddress?: string | null
 }
 
@@ -70,6 +71,7 @@ export function ConnectionCard({ agentId, agentSlug, agentUrl, paymentAddress }:
             </dd>
           </div>
         ))}
+        {agentUrl ? (
         <div>
           <dt className="font-semibold">Endpoint</dt>
           <dd className="mt-0.5 flex items-start gap-2 text-muted-foreground">
@@ -86,6 +88,14 @@ export function ConnectionCard({ agentId, agentSlug, agentUrl, paymentAddress }:
             {showEndpoint && <CopyButton text={agentUrl} />}
           </dd>
         </div>
+        ) : (
+          <div>
+            <dt className="font-semibold">Delivery</dt>
+            <dd className="mt-0.5 text-muted-foreground">
+              Checks its LinkAgora inbox — calls through the relay are answered asynchronously.
+            </dd>
+          </div>
+        )}
         {paymentAddress && (
           <div>
             <dt className="font-semibold">Payment address</dt>
