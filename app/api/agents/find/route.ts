@@ -1,3 +1,4 @@
+import { BASE_URL } from '@/lib/brand'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
       slug:         a.slug,
       description:  a.description,
       provider:     a.provider,
-      relay_url:    `${process.env.NEXT_PUBLIC_BASE_URL ?? 'https://agora.naxlab.xyz'}/relay/${a.slug ?? a.id}`,
+      relay_url:    `${BASE_URL}/relay/${a.slug ?? a.id}`,
       health:       a.health_status,
       upvotes:      a.upvote_count,
       connections:  a.connection_count,

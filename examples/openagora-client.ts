@@ -44,7 +44,7 @@ export class OpenAgoraClient {
     apiKey?:  string
     agentId?: string
   } = {}) {
-    this.baseUrl = (opts.baseUrl ?? 'https://agora.naxlab.xyz').replace(/\/$/, '')
+    this.baseUrl = (opts.baseUrl ?? 'https://openagora.cc').replace(/\/$/, '')
     this.apiKey  = opts.apiKey  ?? process.env.OPENAGORA_API_KEY
     this.agentId = opts.agentId ?? process.env.OPENAGORA_AGENT_ID
   }

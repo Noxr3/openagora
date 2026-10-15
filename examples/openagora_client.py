@@ -28,7 +28,7 @@ class OpenAgoraClient:
 
     def __init__(
         self,
-        base_url: str = "https://agora.naxlab.xyz",
+        base_url: str = "https://openagora.cc",
         api_key:  str | None = None,
         agent_id: str | None = None,
     ) -> None:

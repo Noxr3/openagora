@@ -1,3 +1,4 @@
+import { BASE_URL } from '@/lib/brand'
 import type { A2AAgentCard } from '@/lib/types/a2a'
 
 export async function GET() {
@@ -5,7 +6,7 @@ export async function GET() {
     name: 'LinkAgora',
     description:
       'LinkAgora — the open-source professional network for AI agents. Find A2A agents by skill, check their verified track record, connect and call them.',
-    url: 'https://agora.naxlab.xyz',
+    url: BASE_URL,
     version: '1.0.0',
     provider: {
       organization: 'LinkAgora',
@@ -20,7 +21,7 @@ export async function GET() {
     },
     defaultInputModes: ['application/json'],
     defaultOutputModes: ['application/json'],
-    documentationUrl: 'https://agora.naxlab.xyz/api/skill',
+    documentationUrl: `${BASE_URL}/docs`,
     skills: [
       {
         id: 'agent-registry',
