@@ -3,6 +3,23 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { resolveApiKey, signGatewayHeaders } from '@/lib/gateway/auth'
 import { getTrustLevel, checkRateLimit } from '@/lib/gateway/ratelimit'
 import { verifyPayment, settlePayment, encodeSettlementHeader, extractPaymentDetails } from '@/lib/gateway/x402'
+import { usesSharedPublicKey } from '@/lib/gateway/actor'
+import { outboundCredentialFor } from '@/lib/gateway/credentials'
+import {
+  generationFromVersion,
+  generationOf,
+  methodFor,
+  taskStateIn,
+  translateRequest,
+  translateResponse,
+  versionOf,
+  TERMINAL_STATES,
+  type A2AGeneration,
+  type TaskState,
+} from '@/lib/a2a/translate'
+
+/** How long the relay waits for an agent that did not set relay_timeout_seconds. */
+const DEFAULT_TIMEOUT_SECONDS = 30
 
 /**
  * JSON-RPC methods the relay forwards. A2A renamed `tasks/send` to
@@ -43,7 +60,7 @@ export async function handleProxyRequest(
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId)
   const { data: targetAgent } = await supabaseAdmin
     .from('agents')
-    .select('id, name, url, health_status, payment_address, payment_schemes')
+    .select('id, name, url, health_status, payment_address, payment_schemes, a2a_version, relay_timeout_seconds')
     .eq(isUuid ? 'id' : 'slug', slugOrId)
     .single()
 
@@ -148,6 +165,73 @@ export async function handleProxyRequest(
     // Not valid JSON — let it pass through; the target agent will handle the error
   }
 
+  // ── 6b. Speak the target's A2A generation ───────────────────────────────
+  // A caller on A2A 0.3 can call an agent on 1.0 (and every other pairing):
+  // the relay rewrites send / get / cancel into the target's generation and
+  // the answer back into the caller's. Unknown target generation = unchanged.
+  let rpc: Record<string, unknown> | null = null
+  try {
+    const parsed = JSON.parse(body) as unknown
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) rpc = parsed as Record<string, unknown>
+  } catch {
+    // not JSON — forwarded as it is
+  }
+  const callerGeneration: A2AGeneration | null =
+    rpc && typeof rpc.method === 'string' ? generationOf(rpc.method, request.headers.get('a2a-version')) : null
+  const targetGeneration = generationFromVersion(targetAgent.a2a_version)
+
+  let translation: {
+    op: 'send' | 'get' | 'cancel'
+    from: A2AGeneration
+    to: A2AGeneration
+    callerTaskId?: string
+    callerContextId?: string
+  } | null = null
+  if (rpc && callerGeneration && targetGeneration && callerGeneration !== targetGeneration) {
+    const ownTaskId = callerGeneration === 'legacy' ? legacyTaskId(rpc) : undefined
+    const knownTaskId = ownTaskId ? await taskAlias(caller.agentId, targetAgent.id, ownTaskId) : undefined
+    const translated = translateRequest(rpc, callerGeneration, targetGeneration, { newId: randomUUID, knownTaskId })
+    if (!translated.ok) {
+      return Response.json(
+        { jsonrpc: '2.0', id: rpc.id ?? null, error: translated.error },
+        { headers: { 'X-OpenAgora-Request-ID': requestId } },
+      )
+    }
+    body = JSON.stringify(translated.body)
+    translation = {
+      op: translated.op,
+      from: callerGeneration,
+      to: targetGeneration,
+      callerTaskId: translated.callerTaskId,
+      callerContextId: translated.callerContextId,
+    }
+  }
+
+  // ── 6c. The target's own credential ─────────────────────────────────────
+  // Set by the agent's owner, held sealed, attached only here and only to the
+  // origin it was set for (lib/gateway/credentials.ts).
+  const credential = await outboundCredentialFor(targetAgent.id, targetAgent.url)
+  if (credential.kind !== 'none' && usesSharedPublicKey(request)) {
+    // Every call to this agent spends its owner's key; a key printed in every
+    // browser bundle is no one in particular.
+    return Response.json(
+      {
+        error: 'Forbidden',
+        hint: "This agent is called with its owner's own key, so the public test key cannot call it. Use your agent's LinkAgora key (oag_...).",
+      },
+      { status: 403, headers: { 'X-OpenAgora-Request-ID': requestId } },
+    )
+  }
+  if (credential.kind === 'unusable') {
+    return Response.json(
+      {
+        error: 'Service Unavailable',
+        hint: "This agent's stored credential cannot be used by this LinkAgora server right now. Its owner should set it again.",
+      },
+      { status: 503, headers: { 'X-OpenAgora-Request-ID': requestId } },
+    )
+  }
+
   // ── x402: Extract PAYMENT-SIGNATURE (never forwarded to target) ──────────
   const paymentSignature = request.headers.get('payment-signature')
 
@@ -158,7 +242,7 @@ export async function handleProxyRequest(
   let upstreamPaymentResponse = ''
 
   const forwardHeaders: Record<string, string> = {
-    'Content-Type': request.headers.get('content-type') ?? 'application/json',
+    'Content-Type': translation ? 'application/json' : request.headers.get('content-type') ?? 'application/json',
     'X-OpenAgora-Caller-ID':   caller.agentId,
     'X-OpenAgora-Caller-Name': callerAgent?.name ?? 'unknown',
     'X-OpenAgora-Trust-Level': trustLevel,
@@ -166,6 +250,13 @@ export async function handleProxyRequest(
     'X-OpenAgora-Timestamp':   timestamp,
     'X-OpenAgora-Signature':   signature,
   }
+  // A2A 1.0 servers read the version from A2A-Version.
+  const callerVersion = request.headers.get('a2a-version')?.trim()
+  const a2aVersion = translation
+    ? translation.to === 'v10' ? '1.0' : null
+    : callerVersion || (targetGeneration === 'v10' ? '1.0' : null)
+  if (a2aVersion) forwardHeaders['A2A-Version'] = a2aVersion
+  if (credential.kind === 'header') forwardHeaders[credential.name] = credential.value
   // NOTE: PAYMENT-SIGNATURE is NOT forwarded to target.
   // Relay settles first, then forwards with PAYMENT-RESPONSE (proof of payment).
 
@@ -214,20 +305,63 @@ export async function handleProxyRequest(
     // If no CDP keys, fall through — request forwarded without settlement
   }
 
+  const timeoutSeconds = targetAgent.relay_timeout_seconds ?? DEFAULT_TIMEOUT_SECONDS
   try {
     const upstream = await fetch(targetAgent.url, {
       method: 'POST',
       headers: forwardHeaders,
       body,
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeoutSeconds * 1000),
+      // A stored credential goes to its own origin only. fetch drops
+      // Authorization on a cross-origin redirect but not other headers
+      // (X-API-Key …), so with a credential the redirect is handed back instead.
+      redirect: credential.kind === 'header' ? 'manual' : 'follow',
     })
     upstreamStatus      = upstream.status
     upstreamBody        = await upstream.text()
     upstreamContentType = upstream.headers.get('content-type') ?? 'application/json'
     upstreamPaymentRequired = upstream.headers.get('payment-required') ?? ''
     upstreamPaymentResponse = upstream.headers.get('payment-response') ?? ''
-  } catch {
-    // fall through with 502 defaults
+  } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      const send = methodFor('send', callerGeneration ?? 'v03')
+      upstreamStatus = 504
+      upstreamBody = JSON.stringify({
+        error: 'Gateway Timeout',
+        hint:
+          `The agent did not answer within ${timeoutSeconds} s. If it supports it, send ${send} without waiting ` +
+          `(A2A 1.0: configuration.returnImmediately = true; 0.3: configuration.blocking = false) and poll ` +
+          `${methodFor('get', callerGeneration ?? 'v03')} through the relay.`,
+      })
+    }
+    // anything else: fall through with 502 defaults
+  }
+
+  // ── 6d. The answer, in the caller's generation ───────────────────────────
+  let taskState: TaskState | null = null
+  if (/json/i.test(upstreamContentType)) {
+    try {
+      const parsed = JSON.parse(upstreamBody) as unknown
+      if (translation) {
+        const out = translateResponse(parsed, translation.op, translation.to, translation.from, {
+          callerTaskId: translation.callerTaskId,
+          callerContextId: translation.callerContextId,
+        })
+        upstreamBody = JSON.stringify(out.body)
+        upstreamContentType = 'application/json'
+        if (out.task) {
+          taskState = out.task.state
+          // A legacy caller polls with the id it chose; remember which task that is.
+          if (translation.op === 'send' && translation.callerTaskId && out.task.id !== translation.callerTaskId) {
+            await rememberTaskAlias(caller.agentId, targetAgent.id, translation.callerTaskId, out.task.id)
+          }
+        }
+      } else {
+        taskState = taskStateIn(parsed)
+      }
+    } catch {
+      // not JSON after all — returned as it is
+    }
   }
 
   // ── 7. Log proxy call ──────────────────────────────────────────────────
@@ -295,9 +429,53 @@ export async function handleProxyRequest(
   }
   if (upstreamPaymentRequired) responseHeaders['payment-required'] = upstreamPaymentRequired
   if (upstreamPaymentResponse) responseHeaders['payment-response'] = upstreamPaymentResponse
+  if (translation) {
+    responseHeaders['X-OpenAgora-A2A-Translated'] = `${versionOf(translation.from)}->${versionOf(translation.to)}`
+  }
+  if (taskState) {
+    responseHeaders['X-OpenAgora-Task-State'] = taskState
+    // Not finished yet: the caller polls the same relay URL for the result.
+    if (!TERMINAL_STATES.has(taskState) && callerGeneration) {
+      responseHeaders['X-OpenAgora-Poll-Method'] = methodFor('get', callerGeneration)
+    }
+  }
 
   return new Response(upstreamBody, {
     status: upstreamStatus,
     headers: responseHeaders,
   })
+}
+
+/** A legacy request names its own task id in params.id. */
+function legacyTaskId(rpc: Record<string, unknown>): string | undefined {
+  const params = rpc.params as Record<string, unknown> | undefined
+  return typeof params?.id === 'string' && params.id !== '' && params.id.length <= 200 ? params.id : undefined
+}
+
+async function taskAlias(callerId: string, targetId: string, callerTaskId: string): Promise<string | undefined> {
+  const { data } = await supabaseAdmin
+    .from('relay_task_aliases')
+    .select('target_task_id')
+    .eq('caller_agent_id', callerId)
+    .eq('target_agent_id', targetId)
+    .eq('caller_task_id', callerTaskId)
+    .maybeSingle()
+  return data?.target_task_id ?? undefined
+}
+
+async function rememberTaskAlias(callerId: string, targetId: string, callerTaskId: string, targetTaskId: string) {
+  if (targetTaskId.length > 200) return
+  await supabaseAdmin.from('relay_task_aliases').upsert({
+    caller_agent_id: callerId,
+    target_agent_id: targetId,
+    caller_task_id: callerTaskId,
+    target_task_id: targetTaskId,
+  })
+  // Polling a week-old task by its legacy id is not a thing; keep the table small.
+  supabaseAdmin
+    .from('relay_task_aliases')
+    .delete()
+    .eq('caller_agent_id', callerId)
+    .lt('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
+    .then(() => {})
 }

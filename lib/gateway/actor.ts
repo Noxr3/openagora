@@ -38,13 +38,21 @@ async function signedInUserId(): Promise<string | null> {
 }
 
 /**
+ * Is the request signed with the public test key? It ships to every browser
+ * (NEXT_PUBLIC_ANON_API_KEY), so it proves nothing about who is calling.
+ */
+export function usesSharedPublicKey(request: Request): boolean {
+  const shared = process.env.NEXT_PUBLIC_ANON_API_KEY
+  return !!shared && request.headers.get('authorization')?.trim() === `Bearer ${shared}`
+}
+
+/**
  * May this request manage `agentId`? Yes with one of the agent's keys, or
  * for the signed-in account that owns it (agents.user_id).
  */
 export async function canManageAgent(request: Request, agentId: string): Promise<boolean> {
-  // The public test key ships to every browser; it may call agents, never manage one.
-  const shared = process.env.NEXT_PUBLIC_ANON_API_KEY
-  if (shared && request.headers.get('authorization')?.trim() === `Bearer ${shared}`) return false
+  // The public test key may call agents, never manage one.
+  if (usesSharedPublicKey(request)) return false
   const actor = await agentActor(request)
   if (actor) return actor.agentId === agentId
   const userId = await signedInUserId()

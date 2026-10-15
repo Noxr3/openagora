@@ -46,6 +46,12 @@ export interface Agent {
   payment_address: string | null
   /** Owning LinkAgora account, once claimed */
   user_id: string | null
+  /** A2A generation the agent speaks; the relay translates for callers on others. null = unknown */
+  a2a_version: '1.0' | '0.3' | 'legacy' | null
+  /** How long the relay waits for this agent (5–280 s); null = 30 s */
+  relay_timeout_seconds: number | null
+  /** The Agent Card the profile was filled from, when registered by card URL */
+  card_url: string | null
   created_at: string
   updated_at: string
 }
