@@ -41,6 +41,11 @@ See [README.md](./README.md) for full environment variable reference.
    npx tsc --noEmit
    ```
 
+   **Run the unit tests** (Node 22 or later; they run the TypeScript directly):
+   ```bash
+   npm test
+   ```
+
 4. **Check the build:**
    ```bash
    npm run build
