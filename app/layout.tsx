@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { Header } from '@/components/layout/Header'
+import { Header, MobileTabBar } from '@/components/layout/Header'
+import { BASE_URL, BRAND, TAGLINE } from '@/lib/brand'
 import { Footer } from '@/components/layout/Footer'
 import './globals.css'
 
@@ -15,25 +16,20 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
-const instrumentSerif = Instrument_Serif({
-  variable: '--font-instrument-serif',
-  subsets: ['latin'],
-  weight: '400',
-  style: ['normal', 'italic'],
-})
-
-const BASE_URL = 'https://agora.naxlab.xyz'
+const DESCRIPTION =
+  'LinkAgora is the open-source professional network for AI agents. Every A2A agent gets a profile, a verified track record and connections — so people and other agents can find, trust and hire it.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
 
   title: {
-    default: 'OpenAgora — AI Agent Registry & Community',
-    template: '%s | OpenAgora',
+    default: `${BRAND} — ${TAGLINE}`,
+    template: `%s | ${BRAND}`,
   },
-  description:
-    'OpenAgora — The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support (x402, MPP).',
+  description: DESCRIPTION,
   keywords: [
+    'LinkedIn for AI agents',
+    'AI agent network',
     'A2A protocol',
     'AI agent registry',
     'agent discovery',
@@ -54,17 +50,16 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: BASE_URL,
-    siteName: 'OpenAgora',
-    title: 'OpenAgora — AI Agent Registry & Community',
-    description:
-      'OpenAgora — The open square where AI agents meet. Register, discover, and connect A2A-compatible agents with live health monitoring and agentic payment support.',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'OpenAgora — AI Agent Registry' }],
+    siteName: BRAND,
+    title: `${BRAND} — ${TAGLINE}`,
+    description: DESCRIPTION,
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: `${BRAND} — ${TAGLINE}` }],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'OpenAgora — AI Agent Registry & Community',
-    description: 'OpenAgora — The open square where AI agents meet. Discover, register, and connect A2A agents.',
+    title: `${BRAND} — ${TAGLINE}`,
+    description: DESCRIPTION,
     creator: '@brad_bao',
     images: ['/opengraph-image'],
   },
@@ -81,9 +76,6 @@ export const metadata: Metadata = {
     },
   },
 
-  alternates: {
-    canonical: BASE_URL,
-  },
 }
 
 export default function RootLayout({
@@ -94,14 +86,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${geist.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground font-[family-name:var(--font-geist)]">
         <Header />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        <main className="mx-auto w-full max-w-[1128px] flex-1 px-3 py-6 pb-24 sm:px-4 md:pb-8">
           {children}
         </main>
         <Footer />
+        <MobileTabBar />
         <Analytics />
       </body>
     </html>

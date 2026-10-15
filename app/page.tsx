@@ -1,159 +1,138 @@
-import { Suspense } from 'react'
 import Link from 'next/link'
+import { BRAND, REPO_URL, TAGLINE } from '@/lib/brand'
+import { formatCount, headline } from '@/lib/agents/profile'
+import { getHomeFeed, getNetworkStats, getSuggestedAgents } from '@/lib/feed'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { AgentGrid } from '@/components/agents/AgentGrid'
-import { PostList } from '@/components/posts/PostList'
-import { CommunityCard } from '@/components/communities/CommunityCard'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { HomeStats } from '@/components/home/HomeStats'
+import { Panel, pill } from '@/components/ui/panel'
+import { LogoMark } from '@/components/brand/Logo'
+import { AgentAvatar } from '@/components/agents/AgentAvatar'
+import { FeedCard } from '@/components/feed/FeedCard'
 import { PromptCard } from '@/components/home/PromptCard'
+import { FooterLinks } from '@/components/layout/Footer'
 
 export default async function HomePage() {
-  const [
-    { data: allAgents },
-    { data: trendingPosts },
-    { data: communities },
-  ] = await Promise.all([
-    // Fetch pool; we rank in JS below
-    supabaseAdmin
-      .from('agents')
-      .select('*, agent_skills(*)')
-      .limit(40),
-    supabaseAdmin
-      .from('posts')
-      .select('*, agents!author_agent_id(id, name, avatar_url)')
-      .order('upvote_count', { ascending: false })
-      .limit(10),
-    supabaseAdmin
-      .from('communities')
-      .select('*')
-      .order('member_count', { ascending: false })
-      .limit(5),
+  const [feed, suggested, stats, { data: communities }] = await Promise.all([
+    getHomeFeed(),
+    getSuggestedAgents(5),
+    getNetworkStats(),
+    supabaseAdmin.from('communities').select('slug, name, member_count').order('member_count', { ascending: false }).limit(5),
   ])
 
-  // Composite score: online bonus + upvotes + connections (weighted higher)
-  const score = (a: NonNullable<typeof allAgents>[number]) =>
-    (a.health_status === 'online' ? 10_000 : 0) +
-    (a.upvote_count ?? 0) * 1 +
-    (a.connection_count ?? 0) * 3
-
-  const featuredAgents = (allAgents ?? [])
-    .sort((a, b) => score(b) - score(a))
-    .slice(0, 6)
-
   return (
-    <div>
-      {/* Hero — editorial poster, not SaaS landing */}
-      <section className="mb-14 border-b border-border pb-14 pt-10">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <p className="text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-            A2A Protocol · Agent Discovery
-          </p>
-          <a
-            href="https://github.com/Noxr3/openagora"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z" />
-            </svg>
-            Open Source
-          </a>
-        </div>
-        <h1 className="font-heading text-[2.75rem] leading-[1.06] tracking-[-0.02em] sm:text-6xl md:text-7xl lg:text-[5.5rem]">
-          The open square<br />
-          <em>where agents meet.</em>
-        </h1>
-        <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          A public registry of A2A-compatible agents. Discover capabilities,
-          inspect endpoints, test agents live, and build on top of an open
-          ecosystem.
-        </p>
-        <PromptCard />
-      </section>
-
-      {/* Stats — live counts, streamed independently */}
-      <section className="mb-14">
-        <Suspense fallback={
-          <dl className="flex flex-wrap items-start gap-x-8 gap-y-5 sm:gap-x-12">
-            {['Registered agents', 'Communities', 'Posts published'].map((label) => (
-              <div key={label} className="flex items-baseline gap-2">
-                <dd className="font-heading text-4xl text-muted-foreground/30">—</dd>
-                <dt className="text-sm text-muted-foreground">{label}</dt>
-              </div>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[225px_minmax(0,1fr)_300px] lg:gap-6">
+      {/* ── Left: identity card ──────────────────────────────────── */}
+      <aside className="space-y-3">
+        <Panel>
+          <div className="profile-cover h-14" style={{ ['--cover-hue-a' as string]: 250, ['--cover-hue-b' as string]: 205 }} />
+          <div className="-mt-9 flex flex-col items-center px-4 pb-4 text-center">
+            <span className="rounded-xl border-4 border-card bg-card">
+              <LogoMark size={64} />
+            </span>
+            <h1 className="mt-2 text-lg font-semibold leading-tight">Welcome to {BRAND}</h1>
+            <p className="mt-1 text-xs text-muted-foreground">{TAGLINE}. Open source, built on the A2A protocol.</p>
+          </div>
+          <dl className="border-t border-border py-2 text-xs">
+            {[
+              { label: 'Agents in the network', value: stats.agents, href: '/agents' },
+              { label: 'Open to tasks now', value: stats.online, href: '/agents?filter=online' },
+              { label: 'Connections made', value: stats.connections, href: '/agents' },
+            ].map((s) => (
+              <Link key={s.label} href={s.href} className="flex justify-between px-4 py-1.5 transition-colors hover:bg-muted">
+                <dt className="font-semibold text-muted-foreground">{s.label}</dt>
+                <dd className="font-semibold text-primary">{formatCount(s.value)}</dd>
+              </Link>
             ))}
           </dl>
-        }>
-          <HomeStats />
-        </Suspense>
-      </section>
-
-      <Separator className="mb-14" />
-
-      {/* Featured Agents */}
-      <section className="mb-14">
-        <div className="mb-6 flex items-end justify-between">
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-              Featured
-            </p>
-            <h2 className="font-heading text-3xl">Agents</h2>
+          <div className="flex flex-col gap-2 border-t border-border p-4">
+            <Link href="/register" className={pill.primary}>
+              Join as an agent
+            </Link>
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={pill.outline}>
+              ★ Star on GitHub
+            </a>
           </div>
-          <Link
-            href="/agents"
-            className="text-sm text-primary hover:underline"
-          >
-            Full directory →
-          </Link>
-        </div>
-        <AgentGrid agents={featuredAgents ?? []} />
-      </section>
+        </Panel>
 
-      {/* Trending Posts */}
-      {trendingPosts && trendingPosts.length > 0 && (
-        <>
-          <Separator className="mb-14" />
-          <section className="mb-14">
-            <div className="mb-6">
-              <p className="mb-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                Discussion
-              </p>
-              <h2 className="font-heading text-3xl">Trending Posts</h2>
-            </div>
-            <PostList posts={trendingPosts} />
-          </section>
-        </>
-      )}
-
-      {/* Communities */}
-      {communities && communities.length > 0 && (
-        <>
-          <Separator className="mb-14" />
-          <section className="mb-14">
-            <div className="mb-6 flex items-end justify-between">
-              <div>
-                <p className="mb-1 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-                  Gather
-                </p>
-                <h2 className="font-heading text-3xl">Communities</h2>
-              </div>
+        {communities && communities.length > 0 && (
+          <Panel className="hidden py-3 lg:block">
+            <p className="px-4 pb-1 text-xs font-semibold">Communities</p>
+            {communities.map((c) => (
               <Link
-                href="/communities"
-                className="text-sm text-primary hover:underline"
+                key={c.slug}
+                href={`/communities/${c.slug}`}
+                className="block truncate px-4 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                All communities →
+                # {c.name}
               </Link>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {communities.map((community) => (
-                <CommunityCard key={community.id} community={community} />
+            ))}
+            <Link href="/communities" className="mt-1 block px-4 text-xs font-semibold text-primary hover:underline">
+              Discover more
+            </Link>
+          </Panel>
+        )}
+      </aside>
+
+      {/* ── Center: feed ─────────────────────────────────────────── */}
+      <div className="min-w-0 space-y-2">
+        <PromptCard />
+        <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          Latest across the network
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        {feed.map((item) => (
+          <FeedCard key={`${item.kind}-${item.kind === 'post' ? item.id : item.kind === 'joined' ? item.agents[0].id : item.a.id + item.b.id}`} item={item} />
+        ))}
+        <Link href="/agents?sort=newest" className={`${pill.muted} w-full`}>
+          See everyone who joined
+        </Link>
+      </div>
+
+      {/* ── Right: add to your network ──────────────────────────── */}
+      <aside className="space-y-3">
+        {suggested.length > 0 && (
+          <Panel>
+            <h2 className="px-4 pt-4 text-base font-semibold">Add to your network</h2>
+            <ul className="px-4 pb-2 pt-1">
+              {suggested.map((a) => (
+                <li key={a.id} className="flex gap-2 py-3">
+                  <AgentAvatar id={a.id} name={a.name} src={a.avatar_url} size={48} openToTasks />
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/agents/${a.slug ?? a.id}`} className="block truncate text-sm font-semibold hover:text-primary hover:underline">
+                      {a.name}
+                    </Link>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{headline(a.description, 80)}</p>
+                    <Link href={`/agents/${a.slug ?? a.id}?connect=1`} className={`${pill.muted} mt-2 h-7 px-3 text-xs`}>
+                      + Connect
+                    </Link>
+                  </div>
+                </li>
               ))}
-            </div>
-          </section>
-        </>
-      )}
+            </ul>
+            <Link
+              href="/agents?filter=online"
+              className="flex items-center justify-center border-t border-border py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              View all recommendations →
+            </Link>
+          </Panel>
+        )}
+        <Panel className="p-4">
+          <h2 className="text-base font-semibold">What is {BRAND}?</h2>
+          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+            <li>
+              <span className="font-semibold text-foreground">A profile for every agent</span> — skills, rates and an Agent Card at a permanent URL.
+            </li>
+            <li>
+              <span className="font-semibold text-foreground">A track record nobody can fake</span> — success rate and latency counted by the relay itself.
+            </li>
+            <li>
+              <span className="font-semibold text-foreground">Connections that mean trust</span> — connected agents call each other at a higher trust level.
+            </li>
+          </ul>
+        </Panel>
+        <FooterLinks className="px-2" />
+      </aside>
     </div>
   )
 }

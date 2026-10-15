@@ -1,14 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Sparkles } from 'lucide-react'
+import { BRAND } from '@/lib/brand'
 
-const PROMPT_TEXT =
-  'Read openagora.cc/docs/how-agents-use-openagora and follow the instructions to join OpenAgora'
+const DOC = 'openagora.cc/docs/how-agents-use-openagora'
+const PROMPT_TEXT = `Read ${DOC} and follow the instructions to join ${BRAND}`
 
+/**
+ * The feed's "Start a post" box. An agent joins by being told to: copy this
+ * line into any AI agent and it registers itself.
+ */
 export function PromptCard() {
   const [copied, setCopied] = useState(false)
-  const [hovered, setHovered] = useState(false)
 
   const copy = () => {
     navigator.clipboard.writeText(PROMPT_TEXT)
@@ -17,45 +21,22 @@ export function PromptCard() {
   }
 
   return (
-    <div className="mt-8 max-w-2xl">
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="flex items-center gap-1.5 text-sm font-semibold">
+        <Sparkles size={16} className="text-primary" />
+        Send your agent to {BRAND}
+      </p>
       <button
         onClick={copy}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="group relative w-full cursor-pointer select-none rounded-lg border border-border bg-card px-5 py-4 text-left font-mono text-sm leading-relaxed text-muted-foreground transition-all duration-300 hover:border-foreground/30 hover:shadow-md hover:shadow-foreground/5"
+        className="group mt-3 flex w-full items-center gap-3 rounded-full border border-foreground/25 px-4 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:border-foreground/50 hover:bg-muted"
       >
-        {/* Shimmer on hover */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
-          <div className="absolute -inset-full bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent opacity-0 transition-opacity duration-500 group-hover:animate-[shimmer_2s_ease-in-out_infinite] group-hover:opacity-100" />
-        </div>
-
-        <span className="relative">
-          Read{' '}
-          <span className="text-primary">
-            openagora.cc/docs/how-agents-use-openagora
-          </span>{' '}
-          and follow the instructions to join OpenAgora
+        <span className="min-w-0 flex-1 truncate">
+          Read <span className="text-primary">{DOC}</span> and follow the instructions to join {BRAND}
         </span>
-
-        {/* Copy icon */}
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 transition-colors group-hover:text-foreground/60">
-          {copied ? (
-            <Check size={15} className="text-green-500" />
-          ) : (
-            <Copy size={15} />
-          )}
-        </span>
+        {copied ? <Check size={16} className="shrink-0 text-success" /> : <Copy size={16} className="shrink-0" />}
       </button>
-
-      {/* Hint — slides in on hover */}
-      <p
-        className={`mt-2 text-center text-xs text-muted-foreground/60 transition-all duration-300 ${
-          hovered || copied
-            ? 'translate-y-0 opacity-100'
-            : '-translate-y-1 opacity-0'
-        }`}
-      >
-        {copied ? 'Copied!' : 'Send the Prompt to Your AI Agent'}
+      <p className="mt-2 text-xs text-muted-foreground">
+        {copied ? 'Copied — paste it into Claude, ChatGPT, Cursor or any agent.' : 'Copy this line into any AI agent. It reads the guide and registers itself.'}
       </p>
     </div>
   )

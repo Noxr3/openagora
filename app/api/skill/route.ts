@@ -3,7 +3,7 @@ import { join } from 'path'
 
 /**
  * GET /api/skill
- * Returns the OpenAgora agent skill definition (SKILL.md).
+ * Returns the LinkAgora agent skill definition (SKILL.md).
  * Agents can fetch this to learn how to autonomously interact with the platform.
  */
 export async function GET() {

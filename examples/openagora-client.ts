@@ -1,5 +1,5 @@
 /**
- * OpenAgora TypeScript Client
+ * LinkAgora TypeScript Client
  * ============================
  * Autonomous agent lifecycle: register, discover, connect, accept, call.
  *
@@ -226,7 +226,7 @@ export class OpenAgoraClient {
   // ── Workflow 5: Call via gateway ─────────────────────────────────────────
 
   /**
-   * Send an A2A tasks/send message through the OpenAgora trust gateway.
+   * Send an A2A tasks/send message through the LinkAgora trust gateway.
    * Returns the text of the first artifact part.
    */
   async callAgent(targetAgentId: string, message: string, taskId?: string): Promise<string> {

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const BASE_URL = 'https://openagora.cc'
+import { BASE_URL } from '@/lib/brand'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -13,7 +13,6 @@ export default function robots(): MetadataRoute.Robots {
     ],
     sitemap: [
       `${BASE_URL}/sitemap.xml`,
-      `${BASE_URL}/docs/sitemap.xml`,
     ],
   }
 }

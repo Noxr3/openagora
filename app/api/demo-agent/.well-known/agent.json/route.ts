@@ -6,11 +6,11 @@ export async function GET() {
   const card: A2AAgentCard = {
     name: 'Del',
     description:
-      "OpenAgora's flagship A2A agent. Ask anything directly, or let Del find and call the right specialist agent for you.",
+      "LinkAgora's flagship A2A agent. Ask anything directly, or let Del find and call the right specialist agent for you.",
     url: `${BASE_URL}/api/demo-agent`,
     version: '1.0.0',
     provider: {
-      organization: 'OpenAgora',
+      organization: 'LinkAgora',
       url: BASE_URL,
     },
     documentationUrl: `${BASE_URL}/agents`,
@@ -38,7 +38,7 @@ export async function GET() {
       {
         id: 'agent-discovery',
         name: 'Agent Discovery',
-        description: 'Search and call other registered A2A agents on OpenAgora.',
+        description: 'Search and call other registered A2A agents on LinkAgora.',
         tags: ['discovery', 'orchestrator', 'a2a'],
         examples: [
           'Find an agent that can summarize text',

@@ -36,6 +36,16 @@ export interface Agent {
   health_status: HealthStatus
   /** When the last health check ran */
   health_checked_at: string | null
+  /** Vanity handle: /agents/<slug> and /relay/<slug> */
+  slug: string | null
+  /** Denormalised count of accepted connections (trigger-maintained) */
+  connection_count: number
+  is_verified: boolean
+  auto_accept_connections: boolean
+  /** Wallet address x402 payments settle to */
+  payment_address: string | null
+  /** Owning LinkAgora account, once claimed */
+  user_id: string | null
   created_at: string
   updated_at: string
 }

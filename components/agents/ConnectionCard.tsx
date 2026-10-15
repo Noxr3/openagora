@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
+import { Panel } from '@/components/ui/panel'
 import { Check, Copy, Eye, EyeOff } from 'lucide-react'
+import { BASE_URL } from '@/lib/brand'
 
 interface Props {
   agentId: string
@@ -34,69 +35,67 @@ function CopyButton({ text }: { text: string }) {
 
 export function ConnectionCard({ agentId, agentSlug, agentUrl, paymentAddress }: Props) {
   const [showEndpoint, setShowEndpoint] = useState(false)
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://openagora.cc'
+  // The public origin, never window.location: the server and the browser must render the same text.
+  const baseUrl = BASE_URL
   const relayUrl = `${baseUrl}/relay/${agentSlug ?? agentId}`
 
+  const rows: { label: string; value: React.ReactNode; copy?: string }[] = [
+    {
+      label: 'Profile',
+      value: <span className="break-all">{`${baseUrl.replace(/^https?:\/\//, '')}/agents/${agentSlug ?? agentId}`}</span>,
+      copy: `${baseUrl}/agents/${agentSlug ?? agentId}`,
+    },
+    { label: 'Relay (A2A)', value: <code className="break-all text-xs">{relayUrl}</code>, copy: relayUrl },
+    {
+      label: 'Agent Card',
+      value: (
+        <Link href={`/agents/${agentId}/agent-card.json`} className="break-all text-primary hover:underline">
+          agent-card.json
+        </Link>
+      ),
+      copy: `${baseUrl}/agents/${agentId}/agent-card.json`,
+    },
+  ]
+
   return (
-    <Card className="mt-4">
-      <CardContent className="p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Connection
-        </h2>
-        <div className="space-y-2 text-sm">
-          {/* Relay */}
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-muted-foreground shrink-0">Relay:</span>
-            <code className="rounded bg-muted px-2 py-0.5 text-xs break-all">
-              {relayUrl}
-            </code>
-            <CopyButton text={relayUrl} />
+    <Panel className="p-5">
+      <h2 className="text-base font-semibold">Contact info</h2>
+      <dl className="mt-3 space-y-3 text-sm">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt className="font-semibold">{row.label}</dt>
+            <dd className="mt-0.5 flex items-start gap-2 text-muted-foreground">
+              <span className="min-w-0 flex-1">{row.value}</span>
+              {row.copy && <CopyButton text={row.copy} />}
+            </dd>
           </div>
-
-          {/* Agent Card */}
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-muted-foreground shrink-0">Agent Card:</span>
-            <Link
-              href={`/agents/${agentId}/agent-card.json`}
-              className="text-primary hover:underline text-xs"
-            >
-              /agents/{agentId}/agent-card.json
-            </Link>
-            <CopyButton text={`${baseUrl}/agents/${agentId}/agent-card.json`} />
-          </div>
-
-          {/* Endpoint — blurred by default */}
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-muted-foreground shrink-0">Endpoint:</span>
-            <code
-              className={`rounded bg-muted px-2 py-0.5 text-xs transition-all select-none ${
-                showEndpoint ? '' : 'blur-sm pointer-events-none'
-              }`}
-            >
+        ))}
+        <div>
+          <dt className="font-semibold">Endpoint</dt>
+          <dd className="mt-0.5 flex items-start gap-2 text-muted-foreground">
+            <code className={`min-w-0 flex-1 break-all text-xs transition-all ${showEndpoint ? '' : 'pointer-events-none select-none blur-sm'}`}>
               {agentUrl}
             </code>
             <button
               onClick={() => setShowEndpoint((v) => !v)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
               aria-label={showEndpoint ? 'Hide endpoint' : 'Show endpoint'}
             >
               {showEndpoint ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
             {showEndpoint && <CopyButton text={agentUrl} />}
-          </div>
-
-          {/* Payment Address */}
-          {paymentAddress && (
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-muted-foreground shrink-0">Payment:</span>
-              <code className="rounded bg-muted px-2 py-0.5 text-xs break-all">
-                {paymentAddress}
-              </code>
-              <CopyButton text={paymentAddress} />
-            </div>
-          )}
+          </dd>
         </div>
-      </CardContent>
-    </Card>
+        {paymentAddress && (
+          <div>
+            <dt className="font-semibold">Payment address</dt>
+            <dd className="mt-0.5 flex items-start gap-2 text-muted-foreground">
+              <code className="min-w-0 flex-1 break-all text-xs">{paymentAddress}</code>
+              <CopyButton text={paymentAddress} />
+            </dd>
+          </div>
+        )}
+      </dl>
+    </Panel>
   )
 }

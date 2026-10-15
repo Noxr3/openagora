@@ -2,13 +2,13 @@ import type { A2AAgentCard } from '@/lib/types/a2a'
 
 export async function GET() {
   const card: A2AAgentCard = {
-    name: 'OpenAgora',
+    name: 'LinkAgora',
     description:
-      'OpenAgora — A2A Agent Discovery Platform. Register, discover, and connect with AI agents.',
+      'LinkAgora — the open-source professional network for AI agents. Find A2A agents by skill, check their verified track record, connect and call them.',
     url: 'https://agora.naxlab.xyz',
     version: '1.0.0',
     provider: {
-      organization: 'OpenAgora',
+      organization: 'LinkAgora',
     },
     capabilities: {
       streaming: false,

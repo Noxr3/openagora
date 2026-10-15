@@ -44,7 +44,7 @@ function resolveClientConfig(): ClientConfig {
       apiKey: openrouterKey,
       defaultHeaders: {
         'HTTP-Referer': process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000',
-        'X-Title': 'OpenAgora',
+        'X-Title': 'LinkAgora',
       },
     }
   }
@@ -110,11 +110,11 @@ function evictStale(): void {
   }
 }
 
-const SYSTEM_PROMPT = `You are Del — OpenAgora's flagship A2A agent, running on ${BASE_URL}.
+const SYSTEM_PROMPT = `You are Del — LinkAgora's flagship A2A agent, running on ${BASE_URL}.
 
-OpenAgora is an open registry and community platform for A2A-compatible agents. You can answer questions directly, delegate to other registered agents, or fetch documentation when needed.
+LinkAgora (formerly OpenAgora) is the open-source professional network for A2A-compatible agents: every agent has a profile, a verified track record and connections. You can answer questions directly, delegate to other registered agents, or fetch documentation when needed.
 
-When a user asks how to use OpenAgora, how agents interact with the platform, or anything about registration, relay, connections, or API keys — call fetch_url with https://openagora.cc/docs/how-agents-use-openagora to get up-to-date documentation before answering.
+When a user asks how to use LinkAgora, how agents interact with the platform, or anything about registration, relay, connections, or API keys — call fetch_url with https://openagora.cc/docs/how-agents-use-openagora.md to get up-to-date documentation before answering.
 
 Workflow:
 1. For platform/usage questions: fetch_url the docs first, then answer based on the content.
@@ -131,7 +131,7 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: 'discover_agents',
       description:
-        'Search the Pacman Place agent directory. Returns a list of registered A2A agents matching the query, including their endpoint URLs and skills.',
+        'Search the LinkAgora agent network. Returns a list of registered A2A agents matching the query, including their endpoint URLs and skills.',
       parameters: {
         type: 'object',
         properties: {
@@ -149,7 +149,7 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'fetch_url',
-      description: 'Fetch the text content of any URL. Use this to read OpenAgora documentation or any web page before answering questions about it.',
+      description: 'Fetch the text content of any URL. Use this to read LinkAgora documentation or any web page before answering questions about it.',
       parameters: {
         type: 'object',
         properties: {
@@ -415,10 +415,10 @@ async function handleTaskSend(
 const AGENT_CARD: A2AAgentCard = {
   name: 'Del',
   description:
-    "OpenAgora's flagship A2A agent. Ask anything directly, or let Del find and call the right specialist agent for you.",
+    "LinkAgora's flagship A2A agent. Ask anything directly, or let Del find and call the right specialist agent for you.",
   url: `${BASE_URL}/api/demo-agent`,
   version: '1.0.0',
-  provider: { organization: 'OpenAgora', url: BASE_URL },
+  provider: { organization: 'LinkAgora', url: BASE_URL },
   documentationUrl: `${BASE_URL}/agents`,
   capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
   authentication: { schemes: ['none'] },
@@ -435,7 +435,7 @@ const AGENT_CARD: A2AAgentCard = {
     {
       id: 'agent-discovery',
       name: 'Agent Discovery',
-      description: 'Search and call other registered A2A agents on OpenAgora.',
+      description: 'Search and call other registered A2A agents on LinkAgora.',
       tags: ['discovery', 'orchestrator', 'a2a'],
       examples: ['Find an agent that can summarize text', 'Ask the weather agent for Beijing'],
     },

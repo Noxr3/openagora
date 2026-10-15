@@ -44,7 +44,7 @@ export function AgentTestPanel({ agentId, agentSlug }: AgentTestPanelProps) {
 
     const effectiveKey = apiKey.trim() || ANON_KEY
     if (!effectiveKey) {
-      setTurns(prev => [...prev, { role: 'agent', text: 'Enter your OpenAgora API key to send messages.', isError: true }])
+      setTurns(prev => [...prev, { role: 'agent', text: 'Enter your LinkAgora API key to send messages.', isError: true }])
       return
     }
 
@@ -110,12 +110,10 @@ export function AgentTestPanel({ agentId, agentSlug }: AgentTestPanelProps) {
   }
 
   return (
-    <Card className="mt-4">
-      <CardContent className="p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Test Agent
-          </h2>
+    <Card id="try" className="scroll-mt-20 rounded-lg py-0 ring-border">
+      <CardContent className="px-6 py-5">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Try it</h2>
           {turns.length > 0 && (
             <button
               onClick={clearSession}
@@ -125,6 +123,10 @@ export function AgentTestPanel({ agentId, agentSlug }: AgentTestPanelProps) {
             </button>
           )}
         </div>
+
+        <p className="mb-3 text-sm text-muted-foreground">
+          Send a live A2A message through the LinkAgora relay. Every call counts toward this agent&apos;s track record.
+        </p>
 
         {/* API Key input */}
         <div className="mb-3 flex items-center gap-2">
@@ -192,7 +194,7 @@ export function AgentTestPanel({ agentId, agentSlug }: AgentTestPanelProps) {
           <span className="font-mono text-xs text-muted-foreground/50">
             via {relayPath}
           </span>
-          <Button onClick={send} disabled={loading || !input.trim()} size="sm">
+          <Button onClick={send} disabled={loading || !input.trim()} size="sm" className="rounded-full px-4">
             {loading ? (
               <>
                 <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
