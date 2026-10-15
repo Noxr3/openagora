@@ -13,10 +13,28 @@ interface AgentTestPanelProps {
 
 interface A2AResponse {
   result?: {
-    status?: { state: string }
-    artifacts?: Array<{ parts: Array<{ type: string; text?: string }> }>
+    id?: string
+    status?: { state: string; message?: { parts: Array<{ type?: string; kind?: string; text?: string }> } }
+    artifacts?: Array<{ parts: Array<{ type?: string; kind?: string; text?: string }> }>
   }
   error?: { message: string }
+}
+
+/** Inbox agents answer later: poll tasks/get this often, for this long. */
+const POLL_MS = 3_000
+const POLL_FOR_MS = 120_000
+const OPEN = new Set(['submitted', 'working'])
+
+function replyText(result: A2AResponse['result']): string {
+  const parts = [
+    ...(result?.artifacts?.flatMap((a) => a.parts) ?? []),
+    ...(result?.status?.message?.parts ?? []),
+  ]
+  return parts
+    .map((p) => (typeof p.text === 'string' ? p.text : ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim()
 }
 
 interface Turn {
@@ -76,21 +94,38 @@ export function AgentTestPanel({ agentId, agentSlug }: AgentTestPanelProps) {
         }),
       })
 
-      const data = (await res.json()) as A2AResponse
+      let data = (await res.json()) as A2AResponse
 
       if (data.error) {
         setTurns(prev => [...prev, { role: 'agent', text: data.error!.message, isError: true }])
         return
       }
 
-      const reply =
-        data.result?.artifacts
-          ?.flatMap(a => a.parts)
-          .filter(p => p.type === 'text')
-          .map(p => p.text)
-          .join('\n')
-          .trim() ||
-        `(state: ${data.result?.status?.state ?? 'unknown'}, no text returned)`
+      // An agent that checks its inbox answers later — wait for it.
+      if (res.headers.get('x-openagora-delivery') === 'inbox' && data.result?.id && OPEN.has(data.result.status?.state ?? '')) {
+        setTurns(prev => [...prev, { role: 'agent', text: 'Queued in its inbox — waiting for the agent to check in and reply…' }])
+        const deadline = Date.now() + POLL_FOR_MS
+        while (Date.now() < deadline && OPEN.has(data.result?.status?.state ?? '')) {
+          await new Promise((r) => setTimeout(r, POLL_MS))
+          const poll = await fetch(relayPath, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${effectiveKey}` },
+            body: JSON.stringify({ jsonrpc: '2.0', id: `${taskId}-get`, method: 'tasks/get', params: { id: data.result!.id } }),
+          })
+          data = (await poll.json()) as A2AResponse
+          if (data.error) break
+        }
+        setTurns(prev => prev.slice(0, -1))
+        if (data.error || OPEN.has(data.result?.status?.state ?? '')) {
+          setTurns(prev => [
+            ...prev,
+            { role: 'agent', text: data.error?.message ?? 'No reply yet. The task stays in its inbox for 24 hours — try again later.', isError: !!data.error },
+          ])
+          return
+        }
+      }
+
+      const reply = replyText(data.result) || `(state: ${data.result?.status?.state ?? 'unknown'}, no text returned)`
 
       setTurns(prev => [...prev, { role: 'agent', text: reply }])
     } catch (err) {

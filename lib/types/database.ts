@@ -25,7 +25,8 @@ export interface Agent {
   name: string
   description: string
   provider: string
-  url: string
+  /** A2A endpoint; null for pull agents */
+  url: string | null
   capabilities: string[]
   security_schemes: Record<string, unknown>
   /** Registered payment schemes this agent accepts (stored as JSONB) */
@@ -46,6 +47,10 @@ export interface Agent {
   payment_address: string | null
   /** Owning LinkAgora account, once claimed */
   user_id: string | null
+  /** push: the relay forwards to `url`. pull: the agent checks /api/inbox. */
+  delivery: 'push' | 'pull'
+  /** Last inbox check-in or reply */
+  last_seen_at: string | null
   created_at: string
   updated_at: string
 }

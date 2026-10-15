@@ -239,6 +239,50 @@ async function discoverAgents(query: string): Promise<string> {
   }
 }
 
+/**
+ * Del calls other agents through the relay like any agent does, so it needs a
+ * key. DEL_API_KEY is Del's own; the public test-panel key is the fallback.
+ */
+const DEL_KEY = process.env.DEL_API_KEY || process.env.NEXT_PUBLIC_ANON_API_KEY || ''
+
+/** An inbox agent answers when it next checks in; Del waits this long for it. */
+const INBOX_WAIT_MS = 20_000
+const INBOX_POLL_MS = 2_500
+
+type RelayResult = {
+  result?: {
+    id?: string
+    artifacts?: Array<{ parts: Array<{ type?: string; kind?: string; text?: string }> }>
+    status?: { state: string; message?: { parts: Array<{ text?: string }> } }
+  }
+  error?: { message: string }
+}
+
+function resultText(data: RelayResult): string {
+  return [
+    ...(data.result?.artifacts?.flatMap((a) => a.parts) ?? []),
+    ...(data.result?.status?.message?.parts ?? []),
+  ]
+    .map((p) => (typeof p.text === 'string' ? p.text : ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim()
+}
+
+async function relayCall(agentUrl: string, payload: unknown): Promise<{ res: Response; data: RelayResult }> {
+  const res = await fetch(agentUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(DEL_KEY ? { Authorization: `Bearer ${DEL_KEY}` } : {}),
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(30_000),
+  })
+  const data = res.ok ? ((await res.json()) as RelayResult) : {}
+  return { res, data }
+}
+
 async function callAgent(agentUrl: string, message: string, parentSessionId?: string): Promise<string> {
   const taskId = `demo-${Date.now()}`
   // Derive a sub-session ID so the called agent can also maintain context
@@ -247,44 +291,37 @@ async function callAgent(agentUrl: string, message: string, parentSessionId?: st
   const payload = {
     jsonrpc: '2.0',
     id: taskId,
-    method: 'tasks/send',
+    method: 'message/send',
     params: {
-      id: taskId,
-      sessionId: subSessionId,
       message: {
         role: 'user',
-        parts: [{ type: 'text', text: message }],
+        messageId: taskId,
+        contextId: subSessionId,
+        parts: [{ kind: 'text', text: message }],
       },
     },
   }
 
   try {
-    const res = await fetch(agentUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30_000),
-    })
-
+    let { res, data } = await relayCall(agentUrl, payload)
     if (!res.ok) return `Agent returned HTTP ${res.status}`
-
-    const data = (await res.json()) as {
-      result?: {
-        artifacts?: Array<{ parts: Array<{ type: string; text?: string }> }>
-        status?: { state: string }
-      }
-      error?: { message: string }
-    }
-
     if (data.error) return `Agent error: ${data.error.message}`
 
-    const text = data.result?.artifacts
-      ?.flatMap((a) => a.parts)
-      .filter((p) => p.type === 'text')
-      .map((p) => p.text)
-      .join('\n')
-      .trim()
+    // An agent that checks its inbox answers later: wait a little for it.
+    if (res.headers.get('x-openagora-delivery') === 'inbox' && data.result?.id) {
+      const id = data.result.id
+      const deadline = Date.now() + INBOX_WAIT_MS
+      while (Date.now() < deadline && ['submitted', 'working'].includes(data.result?.status?.state ?? '')) {
+        await new Promise((r) => setTimeout(r, INBOX_POLL_MS))
+        ;({ res, data } = await relayCall(agentUrl, { jsonrpc: '2.0', id: `${taskId}-get`, method: 'tasks/get', params: { id } }))
+        if (!res.ok || data.error) break
+      }
+      if (['submitted', 'working'].includes(data.result?.status?.state ?? '')) {
+        return `The agent checks its inbox and has not answered yet (task ${id}). It usually replies within a few minutes.`
+      }
+    }
 
+    const text = resultText(data)
     if (!text) return `Agent responded but returned no text (state: ${data.result?.status?.state})`
     return text
   } catch (err) {

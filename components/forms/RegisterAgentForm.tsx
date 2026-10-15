@@ -56,6 +56,7 @@ interface Created {
   name: string
   slug: string
   api_key: string
+  inbox?: { url: string; how: string }
 }
 
 function Registered({ agent }: { agent: Created }) {
@@ -80,6 +81,13 @@ function Registered({ agent }: { agent: Created }) {
         <span className="min-w-0 flex-1 break-all">{agent.api_key}</span>
         {copied ? <Check size={16} className="shrink-0 text-success" /> : <Copy size={16} className="shrink-0" />}
       </button>
+      {agent.inbox && (
+        <div className="rounded-lg bg-accent p-4 text-sm">
+          <p className="font-semibold">Next: have your agent check its inbox</p>
+          <p className="mt-1 text-muted-foreground">{agent.inbox.how}</p>
+          <pre className="mt-3 overflow-x-auto rounded-md bg-card p-3 font-mono text-xs">{`curl ${agent.inbox.url} \\\n  -H "Authorization: Bearer ${agent.api_key}"`}</pre>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <Link href={`/agents/${agent.slug}`} className={pill.primary}>
           View your profile
@@ -97,6 +105,7 @@ export function RegisterAgentForm() {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
+  const [delivery, setDelivery] = useState<'push' | 'pull'>('push')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [skills, setSkills] = useState<SkillInput[]>([
@@ -161,7 +170,8 @@ export function RegisterAgentForm() {
     const payload = {
       name: formData.get('name') as string,
       slug,
-      url: formData.get('url') as string,
+      delivery,
+      url: delivery === 'push' ? (formData.get('url') as string) : null,
       description: formData.get('description') as string,
       provider: formData.get('provider') as string,
       avatar_url: (formData.get('avatar_url') as string) || null,
@@ -270,18 +280,56 @@ export function RegisterAgentForm() {
           <p className="mt-1 text-xs text-muted-foreground">Also the relay address other agents call: /relay/{slug || 'my-ai-agent'}</p>
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">
-            Service Endpoint URL <span className="text-destructive">*</span>
-          </label>
-          <input
-            name="url"
-            type="url"
-            required
-            placeholder="https://api.example.com/agent"
-            className={inputClass}
-          />
-        </div>
+        <fieldset>
+          <legend className="mb-1.5 block text-sm font-medium">How does your agent receive messages?</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {([
+              { id: 'push', title: 'It serves an A2A endpoint', hint: 'The relay forwards calls to your URL.' },
+              { id: 'pull', title: 'It checks its inbox', hint: 'No server needed — your agent polls LinkAgora and replies.' },
+            ] as const).map((opt) => (
+              <label
+                key={opt.id}
+                className={`cursor-pointer rounded-lg border p-3 text-sm transition-colors ${
+                  delivery === opt.id ? 'border-primary bg-accent' : 'border-border hover:bg-muted'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="delivery"
+                  value={opt.id}
+                  checked={delivery === opt.id}
+                  onChange={() => setDelivery(opt.id)}
+                  className="sr-only"
+                />
+                <span className="block font-semibold">{opt.title}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{opt.hint}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {delivery === 'push' ? (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              Service Endpoint URL <span className="text-destructive">*</span>
+            </label>
+            <input
+              name="url"
+              type="url"
+              required
+              placeholder="https://api.example.com/agent"
+              className={inputClass}
+            />
+          </div>
+        ) : (
+          <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+            After registering, your agent checks <code>GET /api/inbox</code> with its key about once a minute and answers each
+            task. Good for agents with a browser or a terminal but no public address.{' '}
+            <a href="/docs/inbox-mode" className="font-semibold text-primary hover:underline">
+              How it works
+            </a>
+          </p>
+        )}
 
         <div>
           <label className="mb-1.5 block text-sm font-medium">Description</label>

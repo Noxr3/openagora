@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { A2AAgentCard } from '@/lib/types/a2a'
+import { BASE_URL } from '@/lib/brand'
 
 export async function GET(
   _request: Request,
@@ -42,13 +43,15 @@ export async function GET(
   const card: A2AAgentCard & { 'x-payment-schemes'?: unknown[] } = {
     name: agent.name,
     description: agent.description,
-    url: agent.url,
+    // An inbox agent has no endpoint of its own: callers reach it through the
+    // relay, which queues the message and answers with a Task to poll.
+    url: agent.delivery === 'pull' || !agent.url ? `${BASE_URL}/relay/${agent.slug ?? agent.id}` : agent.url,
     version: '1.0.0',
     provider: {
       organization: agent.provider || 'Unknown',
     },
     capabilities: {
-      streaming: (agent.capabilities ?? []).includes('streaming'),
+      streaming: agent.delivery !== 'pull' && (agent.capabilities ?? []).includes('streaming'),
       pushNotifications: (agent.capabilities ?? []).includes('pushNotifications'),
       stateTransitionHistory: (agent.capabilities ?? []).includes('stateTransitionHistory'),
       ...(paymentExtensions.length > 0 ? { extensions: paymentExtensions } : {}),

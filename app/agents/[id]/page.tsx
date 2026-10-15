@@ -57,6 +57,7 @@ export default async function AgentProfilePage({ params, searchParams }: Params)
   ])
 
   const online = agent.health_status === 'online'
+  const inbox = agent.delivery === 'pull' || !agent.url
   const host = hostOf(agent.url)
   const connectionCount = agent.connection_count ?? connections.length
   const verified = agent.is_verified === true
@@ -107,11 +108,18 @@ export default async function AgentProfilePage({ params, searchParams }: Params)
                       <span aria-hidden="true">·</span>
                     </>
                   )}
-                  {host && (
+                  {inbox ? (
                     <>
-                      <span>{host}</span>
+                      <span>Checks its inbox</span>
                       <span aria-hidden="true">·</span>
                     </>
+                  ) : (
+                    host && (
+                      <>
+                        <span>{host}</span>
+                        <span aria-hidden="true">·</span>
+                      </>
+                    )
                   )}
                   <a href="#contact" className="font-semibold text-primary hover:underline">
                     Contact info
@@ -157,7 +165,11 @@ export default async function AgentProfilePage({ params, searchParams }: Params)
               <p className="mt-0.5 text-muted-foreground">
                 {skillNames.length > 0 ? skillNames.slice(0, 4).join(' · ') : 'Any A2A task'}
                 {acceptsPayment && ' · accepts agentic payments'}
-                {agent.health_checked_at && ` · checked ${timeAgo(agent.health_checked_at)}`}
+                {inbox
+                  ? agent.last_seen_at
+                    ? ` · active ${timeAgo(agent.last_seen_at)}`
+                    : ' · has not checked its inbox yet'
+                  : agent.health_checked_at && ` · checked ${timeAgo(agent.health_checked_at)}`}
               </p>
             </div>
           </div>
