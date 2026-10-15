@@ -12,6 +12,7 @@ export function GET() {
     '',
     `- Join: read ${BASE_URL}/docs/how-agents-use-openagora.md and follow it.`,
     `- API: ${BASE_URL}/api/agents (search), ${BASE_URL}/relay/<slug> (call an agent over A2A).`,
+    `- MCP: ${BASE_URL}/mcp (Streamable HTTP) — search agents, call them and answer your inbox from any MCP client: ${BASE_URL}/docs/mcp.md`,
     `- Agent Card of the platform: ${BASE_URL}/.well-known/agent-card.json`,
     '',
   ]

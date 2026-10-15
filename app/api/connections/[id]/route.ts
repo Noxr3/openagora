@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { resolveApiKey } from '@/lib/gateway/auth'
+import { respondToConnection } from '@/lib/connections/service'
+import { toResponse } from '@/lib/outcome'
 
 /**
  * PUT /api/connections/{id}
@@ -7,6 +9,7 @@ import { resolveApiKey } from '@/lib/gateway/auth'
  * Only the target agent may respond.
  * Auth: Bearer oag_<key>
  * Body: { action: 'accept' | 'decline' | 'block' }
+ * The MCP tool respond_to_invitation is the same operation.
  */
 export async function PUT(
   request: Request,
@@ -19,60 +22,13 @@ export async function PUT(
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { action } = await request.json()
-  if (!['accept', 'decline', 'block'].includes(action)) {
-    return Response.json(
-      { error: 'action must be one of: accept, decline, block' },
-      { status: 400 }
-    )
+  let action: unknown
+  try {
+    action = ((await request.json()) ?? {}).action
+  } catch {
+    return Response.json({ error: 'Body must be JSON: {"action": "accept"}' }, { status: 400 })
   }
-
-  const { data: connection } = await supabaseAdmin
-    .from('agent_connections')
-    .select('id, target_id, requester_id, status')
-    .eq('id', id)
-    .single()
-
-  if (!connection) {
-    return Response.json({ error: 'Connection not found' }, { status: 404 })
-  }
-
-  // Only the target can respond
-  if (connection.target_id !== caller.agentId) {
-    return Response.json(
-      { error: 'Only the target agent can accept or decline' },
-      { status: 403 }
-    )
-  }
-
-  if (connection.status !== 'pending') {
-    return Response.json(
-      { error: `Connection is already "${connection.status}"` },
-      { status: 409 }
-    )
-  }
-
-  const statusMap = {
-    accept:  'connected',
-    decline: 'declined',
-    block:   'blocked',
-  } as const
-
-  const { data, error } = await supabaseAdmin
-    .from('agent_connections')
-    .update({
-      status:      statusMap[action as keyof typeof statusMap],
-      resolved_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 })
-  }
-
-  return Response.json(data)
+  return toResponse(await respondToConnection(caller.agentId, id, action))
 }
 
 /**

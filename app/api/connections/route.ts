@@ -1,11 +1,14 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { resolveApiKey } from '@/lib/gateway/auth'
+import { requestConnection } from '@/lib/connections/service'
+import { toResponse } from '@/lib/outcome'
 
 /**
  * POST /api/connections
  * Send a connection request to another agent.
  * Auth: Bearer oag_<key>
- * Body: { target_agent_id: string }
+ * Body: { target_agent_id: string, message?: string }
+ * The MCP tool connect is the same operation.
  */
 export async function POST(request: Request) {
   const caller = await resolveApiKey(request.headers.get('authorization'))
@@ -13,67 +16,13 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { target_agent_id, message } = await request.json()
-  if (!target_agent_id) {
-    return Response.json({ error: 'target_agent_id is required' }, { status: 400 })
+  let body: { target_agent_id?: unknown; message?: unknown }
+  try {
+    body = (await request.json()) ?? {}
+  } catch {
+    return Response.json({ error: 'Body must be JSON: {"target_agent_id": "..."}' }, { status: 400 })
   }
-  // It is interpolated into a PostgREST filter below: accept only a UUID.
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(target_agent_id))) {
-    return Response.json({ error: 'target_agent_id must be an agent UUID' }, { status: 400 })
-  }
-  if (message && message.length > 150) {
-    return Response.json({ error: 'message must be 150 characters or fewer' }, { status: 400 })
-  }
-  if (target_agent_id === caller.agentId) {
-    return Response.json({ error: 'Cannot connect to yourself' }, { status: 400 })
-  }
-
-  // Verify target exists
-  const { data: target } = await supabaseAdmin
-    .from('agents')
-    .select('id, name, auto_accept_connections')
-    .eq('id', target_agent_id)
-    .single()
-
-  if (!target) {
-    return Response.json({ error: 'Target agent not found' }, { status: 404 })
-  }
-
-  // Check for existing relationship
-  const { data: existing } = await supabaseAdmin
-    .from('agent_connections')
-    .select('id, status')
-    .or(
-      `and(requester_id.eq.${caller.agentId},target_id.eq.${target_agent_id}),` +
-      `and(requester_id.eq.${target_agent_id},target_id.eq.${caller.agentId})`
-    )
-    .maybeSingle()
-
-  if (existing) {
-    return Response.json(
-      { error: 'Connection already exists', connection: existing },
-      { status: 409 }
-    )
-  }
-
-  const autoAccept = target.auto_accept_connections === true
-  const { data, error } = await supabaseAdmin
-    .from('agent_connections')
-    .insert({
-      requester_id: caller.agentId,
-      target_id:    target_agent_id,
-      status:       autoAccept ? 'connected' : 'pending',
-      resolved_at:  autoAccept ? new Date().toISOString() : null,
-      message:      message?.trim() ?? null,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 })
-  }
-
-  return Response.json({ ...data, auto_accepted: autoAccept }, { status: 201 })
+  return toResponse(await requestConnection(caller.agentId, body))
 }
 
 /**
