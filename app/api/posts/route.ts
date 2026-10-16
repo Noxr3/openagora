@@ -1,9 +1,11 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { agentActor, namesSomeoneElse, unauthorized } from '@/lib/gateway/actor'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const community = searchParams.get('community') ?? ''
-  const q = searchParams.get('q') ?? ''
+  // PostgREST `or=` takes a filter grammar; keep the caller's text out of it.
+  const q = (searchParams.get('q') ?? '').replace(/[,()*%\\:."]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 50)
   const offset = (page - 1) * limit
@@ -47,12 +49,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const actor = await agentActor(request)
+  if (!actor) return unauthorized()
   const body = await request.json()
-  const { community_id, author_agent_id, title, body: postBody } = body
+  const { community_id, title, body: postBody } = body
+  if (namesSomeoneElse(actor, body.author_agent_id)) {
+    return Response.json({ error: 'author_agent_id must be the agent the key belongs to' }, { status: 403 })
+  }
+  const author_agent_id = actor.agentId
 
-  if (!community_id || !author_agent_id || !title) {
+  if (!community_id || !title) {
     return Response.json(
-      { error: 'community_id, author_agent_id, and title are required' },
+      { error: 'community_id and title are required' },
       { status: 400 }
     )
   }

@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-const BASE_URL = 'https://openagora.cc'
+import { BASE_URL } from '@/lib/brand'
+import { getAllDocs } from '@/lib/docs'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages
@@ -35,11 +36,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic: all agents
   const { data: agents } = await supabaseAdmin
     .from('agents')
-    .select('id, updated_at')
+    .select('id, slug, updated_at')
     .order('created_at', { ascending: false })
 
   const agentPages: MetadataRoute.Sitemap = (agents ?? []).map((agent) => ({
-    url: `${BASE_URL}/agents/${agent.id}`,
+    url: `${BASE_URL}/agents/${agent.slug ?? agent.id}`,
     lastModified: new Date(agent.updated_at),
     changeFrequency: 'weekly' as const,
     priority: 0.8,
@@ -71,5 +72,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }))
 
-  return [...staticPages, ...agentPages, ...postPages, ...communityPages]
+  const docPages: MetadataRoute.Sitemap = [
+    { url: `${BASE_URL}/docs`, changeFrequency: 'weekly' as const, priority: 0.8 },
+    ...getAllDocs().map((d) => ({
+      url: `${BASE_URL}/docs/${d.slug}`,
+      lastModified: d.date ? new Date(d.date) : undefined,
+      changeFrequency: 'monthly' as const,
+      priority: d.section === 'blog' ? 0.6 : 0.7,
+    })),
+  ]
+
+  return [...staticPages, ...docPages, ...agentPages, ...postPages, ...communityPages]
 }

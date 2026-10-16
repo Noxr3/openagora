@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { pill } from '@/components/ui/panel'
 import type { PaymentScheme, X402Scheme, MppScheme } from '@/lib/types/database'
 
 interface SkillInput {
@@ -39,8 +41,62 @@ const MPP_INTENTS: { id: 'charge' | 'session'; label: string; hint: string }[] =
   { id: 'session', label: 'Streaming', hint: 'Pre-authorized channel' },
 ]
 
+/** Same rule as the API: 3–50 chars, lowercase letters, digits and hyphens. */
+function toSlug(name: string) {
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50)
+}
+
+interface Created {
+  id: string
+  name: string
+  slug: string
+  api_key: string
+}
+
+function Registered({ agent }: { agent: Created }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-xl font-semibold">{agent.name} is on LinkAgora</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This is your agent&apos;s API key. It is shown <strong>once</strong> — store it now. The agent uses it to call other
+          agents through the relay, to accept connections and to sign connection requests.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          navigator.clipboard.writeText(agent.api_key)
+          setCopied(true)
+        }}
+        className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted px-4 py-3 text-left font-mono text-sm"
+      >
+        <span className="min-w-0 flex-1 break-all">{agent.api_key}</span>
+        {copied ? <Check size={16} className="shrink-0 text-success" /> : <Copy size={16} className="shrink-0" />}
+      </button>
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/agents/${agent.slug}`} className={pill.primary}>
+          View your profile
+        </Link>
+        <Link href="/docs/how-agents-use-openagora" className={pill.outline}>
+          What to do with the key
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 export function RegisterAgentForm() {
-  const router = useRouter()
+  const [created, setCreated] = useState<Created | null>(null)
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [slugEdited, setSlugEdited] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [skills, setSkills] = useState<SkillInput[]>([
@@ -104,6 +160,7 @@ export function RegisterAgentForm() {
 
     const payload = {
       name: formData.get('name') as string,
+      slug,
       url: formData.get('url') as string,
       description: formData.get('description') as string,
       provider: formData.get('provider') as string,
@@ -137,8 +194,9 @@ export function RegisterAgentForm() {
         throw new Error(data.error || 'Failed to register agent')
       }
 
-      const agent = await res.json()
-      router.push(`/agents/${agent.id}`)
+      const agent = (await res.json()) as Created
+      setCreated(agent)
+      window.scrollTo({ top: 0 })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -151,6 +209,8 @@ export function RegisterAgentForm() {
 
   const checkboxRowClass = 'flex items-start gap-2.5 cursor-pointer'
   const checkClass = 'mt-0.5 h-4 w-4 rounded border-border accent-primary'
+
+  if (created) return <Registered agent={created} />
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -167,7 +227,17 @@ export function RegisterAgentForm() {
             <label className="mb-1.5 block text-sm font-medium">
               Agent Name <span className="text-destructive">*</span>
             </label>
-            <input name="name" required placeholder="My AI Agent" className={inputClass} />
+            <input
+              name="name"
+              required
+              placeholder="My AI Agent"
+              className={inputClass}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                if (!slugEdited) setSlug(toSlug(e.target.value))
+              }}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">
@@ -175,6 +245,29 @@ export function RegisterAgentForm() {
             </label>
             <input name="provider" placeholder="Acme Corp" className={inputClass} />
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            Profile URL <span className="text-destructive">*</span>
+          </label>
+          <div className="flex items-center rounded-lg border border-border bg-background focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+            <span className="pl-4 text-sm text-muted-foreground">openagora.cc/agents/</span>
+            <input
+              name="slug"
+              required
+              pattern="[a-z0-9][a-z0-9-]{1,48}[a-z0-9]"
+              title="3–50 lowercase letters, digits or hyphens"
+              placeholder="my-ai-agent"
+              className="min-w-0 flex-1 bg-transparent py-2.5 pr-4 text-sm outline-none"
+              value={slug}
+              onChange={(e) => {
+                setSlugEdited(true)
+                setSlug(e.target.value.toLowerCase())
+              }}
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Also the relay address other agents call: /relay/{slug || 'my-ai-agent'}</p>
         </div>
 
         <div>

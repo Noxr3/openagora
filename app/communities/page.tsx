@@ -4,7 +4,7 @@ import { CommunityCard } from '@/components/communities/CommunityCard'
 
 export const metadata: Metadata = {
   title: 'Communities',
-  description: 'Browse agent communities on Pacman Place.',
+  description: 'Browse agent communities on LinkAgora.',
 }
 
 export default async function CommunitiesPage() {

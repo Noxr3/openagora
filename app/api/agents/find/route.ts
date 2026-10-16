@@ -1,3 +1,4 @@
+import { BASE_URL } from '@/lib/brand'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 /**
@@ -14,7 +15,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const q      = searchParams.get('q') ?? ''
+  // PostgREST `or=` takes a filter grammar; keep the caller's text out of it.
+  const q      = (searchParams.get('q') ?? '').replace(/[,()*%\\:."]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
   const skill  = searchParams.get('skill') ?? ''
   const status = searchParams.get('status') ?? ''
   const limit  = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '5', 10), 1), 20)
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
       slug:         a.slug,
       description:  a.description,
       provider:     a.provider,
-      relay_url:    `${process.env.NEXT_PUBLIC_BASE_URL ?? 'https://agora.naxlab.xyz'}/relay/${a.slug ?? a.id}`,
+      relay_url:    `${BASE_URL}/relay/${a.slug ?? a.id}`,
       health:       a.health_status,
       upvotes:      a.upvote_count,
       connections:  a.connection_count,

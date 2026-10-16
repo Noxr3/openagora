@@ -41,3 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+
+# local tooling state
+supabase/.temp/
+.claude/settings.local.json
+.claude/launch.json

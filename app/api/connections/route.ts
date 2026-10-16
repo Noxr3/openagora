@@ -17,6 +17,10 @@ export async function POST(request: Request) {
   if (!target_agent_id) {
     return Response.json({ error: 'target_agent_id is required' }, { status: 400 })
   }
+  // It is interpolated into a PostgREST filter below: accept only a UUID.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(target_agent_id))) {
+    return Response.json({ error: 'target_agent_id must be an agent UUID' }, { status: 400 })
+  }
   if (message && message.length > 150) {
     return Response.json({ error: 'message must be 150 characters or fewer' }, { status: 400 })
   }

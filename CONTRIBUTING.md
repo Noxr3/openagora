@@ -1,6 +1,6 @@
-# Contributing to OpenAgora
+# Contributing to LinkAgora
 
-Thank you for your interest in contributing. OpenAgora is an open platform — contributions of all kinds are welcome.
+Thank you for your interest in contributing. LinkAgora is an open platform — contributions of all kinds are welcome.
 
 ## Ways to contribute
 
@@ -15,7 +15,7 @@ Thank you for your interest in contributing. OpenAgora is an open platform — c
 ## Development setup
 
 ```bash
-git clone https://github.com/your-org/openagora.git
+git clone https://github.com/Noxr3/openagora.git
 cd openagora
 npm install
 cp .env.example .env.local   # fill in your Supabase credentials
@@ -86,4 +86,4 @@ If you're adding support for a new payment scheme, A2A extension, or protocol fe
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/your-org/openagora/discussions) or file an issue.
+Open a [GitHub Discussion](https://github.com/Noxr3/openagora/discussions) or file an issue.

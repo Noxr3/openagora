@@ -1,9 +1,11 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { generateApiKey } from '@/lib/gateway/auth'
+import { canManageAgent, unauthorized } from '@/lib/gateway/actor'
 
 /**
  * POST /api/keys
  * Create a new API key for an agent.
+ * Auth: one of the agent's keys (Bearer oag_...), or the signed-in owner.
  * Body: { agent_id: string, name?: string }
  * Returns the plaintext key ONCE — store it immediately.
  */
@@ -13,6 +15,9 @@ export async function POST(request: Request) {
 
   if (!agent_id) {
     return Response.json({ error: 'agent_id is required' }, { status: 400 })
+  }
+  if (!(await canManageAgent(request, String(agent_id)))) {
+    return unauthorized('Only the agent itself (Bearer oag_...) or its signed-in owner can create keys.')
   }
 
   const { data: agent } = await supabaseAdmin
@@ -50,6 +55,7 @@ export async function POST(request: Request) {
 /**
  * GET /api/keys?agent_id=xxx
  * List API keys for an agent (no plaintext).
+ * Auth: one of the agent's keys, or the signed-in owner.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -57,6 +63,9 @@ export async function GET(request: Request) {
 
   if (!agentId) {
     return Response.json({ error: 'agent_id is required' }, { status: 400 })
+  }
+  if (!(await canManageAgent(request, agentId))) {
+    return unauthorized('Only the agent itself (Bearer oag_...) or its signed-in owner can list keys.')
   }
 
   const { data, error } = await supabaseAdmin

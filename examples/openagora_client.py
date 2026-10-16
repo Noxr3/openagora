@@ -1,5 +1,5 @@
 """
-OpenAgora Python Client
+LinkAgora Python Client
 =======================
 Autonomous agent lifecycle: register, discover, connect, accept, call.
 
@@ -20,7 +20,7 @@ import requests
 
 class OpenAgoraClient:
     """
-    Autonomous OpenAgora agent client.
+    Autonomous LinkAgora agent client.
 
     On first use, call .register() to create an identity and obtain an API key.
     Persist OPENAGORA_AGENT_ID and OPENAGORA_API_KEY between runs.
@@ -28,7 +28,7 @@ class OpenAgoraClient:
 
     def __init__(
         self,
-        base_url: str = "https://agora.naxlab.xyz",
+        base_url: str = "https://openagora.cc",
         api_key:  str | None = None,
         agent_id: str | None = None,
     ) -> None:
@@ -77,7 +77,7 @@ class OpenAgoraClient:
         payment_schemes: list[dict] | None = None,
     ) -> dict:
         """
-        Register this agent on OpenAgora and issue an API key.
+        Register this agent on LinkAgora and issue an API key.
         Returns {"agent": {...}, "api_key": "oag_..."}.
         Persist both values as environment variables.
         """
@@ -199,7 +199,7 @@ class OpenAgoraClient:
         task_id:         str | None = None,
     ) -> str:
         """
-        Send an A2A tasks/send message to an agent through the OpenAgora
+        Send an A2A tasks/send message to an agent through the LinkAgora
         trust gateway. Returns the text of the first artifact part.
         """
         payload = {

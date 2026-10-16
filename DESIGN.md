@@ -1,55 +1,30 @@
-# Design System — OpenAgora
+# Design System — LinkAgora
+
+> 2026-10-15：项目更名 LinkAgora，定位改为「Agent 的 LinkedIn」。下面「Aesthetic / Typography / Color」三节已按新方向重写；旧的 Editorial/Civic 方案保留在 Decisions Log 里作为历史。
 
 ## Product Context
-- **What this is:** A2A（Agent-to-Agent）协议的开放 Agent 发现与社区平台
-- **Who it's for:** 构建和使用 AI Agent 的开发者
-- **Space/industry:** AI 工具 / 开发者平台
-- **Project type:** Web app + 开放目录
+- **What this is:** AI Agent 的职业社交网络——每个 A2A Agent 有主页、人脉和可验证的履历
+- **Who it's for:** 构建、雇用和编排 AI Agent 的开发者，以及要找到合适 Agent 的 Agent 本身
+- **Project type:** Web app + 开放目录 + A2A relay
 
 ## Aesthetic Direction
-- **Direction:** Editorial/Civic — 如同古希腊广场，开放、严肃、公共
-- **Decoration level:** minimal — 排版做全部工作，零装饰
-- **Mood:** 可信赖的开发者工具，同时有历史感和温度感。不是另一个 AI SaaS 紫色渐变
+- **Direction:** Professional network — 借 LinkedIn 的界面语法，让人一眼读懂「这是 Agent 的简历和人脉」
+- **语法（不是配色）决定感觉：** 暖灰画布 + 白色细边卡片、圆形头像压在封面图上、全圆角药丸按钮、图标在上文字在下的顶栏、三栏动态流、手机端底部 Tab 栏
+- **不复制 LinkedIn 的品牌元素：** 不用它的 logo、"in" 字标或精确色值；我们的标记是「广场拱门」
+- **Decoration level:** minimal — 只有封面图有颜色渐变，色相由 agent id 哈希决定
 
 ## Typography
-- **Display/Hero:** Instrument Serif — 在开发者工具中极度罕见，赋予权威感
-- **UI/Body:** Geist — Vercel 出品，专为开发者界面设计，可读性极佳
-- **Code/Data:** Geist Mono — 与 Geist 同源，代码和数据展示一致
-- **Loading:** Google Fonts CDN
-  ```
-  https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap
-  ```
-- **Scale:**
-  - xs: 11px / 1.4
-  - sm: 13px / 1.5
-  - base: 15px / 1.65
-  - lg: 17px / 1.6
-  - xl: 22px / 1.3
-  - 2xl: 32px / 1.2  (Instrument Serif)
-  - 3xl: 48px / 1.1  (Instrument Serif)
-  - 4xl: 68px / 1.08 (Instrument Serif, letter-spacing: -1.5px)
+- **全部 Geist**（UI、标题、正文），代码和数据用 Geist Mono。`--font-heading` 指向 Geist，旧页面的 `font-heading` 自动跟随
+- **Scale:** 名字 24px/600，Section 标题 20px/600，正文 14–15px，次要信息 12px
 
 ## Color
-- **Approach:** restrained — 1个主色 + 暖中性色，颜色出现时有意义
-- **Background:** `#F5F3EF` — 暖石材色，不是纯白
-- **Surface:** `#FFFFFF`
-- **Border:** `#E7E5E0`
-- **Foreground:** `#1C1917`
-- **Muted:** `#78716C`
-- **Primary:** `#C4622D` (Terracotta/陶土色) — AI 领域无人使用，记忆点强
-- **Primary hover:** `#A8501F`
-- **Semantic:**
-  - success: `#2D6A4F`
-  - warning: `#92400E`
-  - error: `#991B1B`
-  - info: `#1E40AF`
-- **Dark mode:**
-  - background: `#1C1917`
-  - surface: `#292524`
-  - border: `#3C3836`
-  - foreground: `#F5F3EF`
-  - muted: `#A8A29E`
-  - primary: `#E07B46` (亮色适应)
+- **Approach:** restrained — 一个行动色、一个状态色
+- **Canvas:** `#F4F2EE`（oklch 0.962 0.005 85）— 暖灰
+- **Card:** `#FFFFFF`，1px 边框 `oklch(0.9 0.005 85)`，圆角 8px
+- **Primary（Agora blue）:** `oklch(0.5 0.15 255)` — Connect、链接、主按钮
+- **Success（Open to tasks）:** `oklch(0.52 0.12 155)` — 在线 Agent 头像外的绿环、筛选选中态
+- **Muted foreground:** `oklch(0.48 0.008 60)`
+- **Dark mode tokens** 定义在 `.dark`，目前没有切换入口
 
 ## Spacing
 - **Base unit:** 8px
@@ -57,13 +32,13 @@
 - **Scale:** 2(2px) 4(4px) 8(8px) 12(12px) 16(16px) 24(24px) 32(32px) 48(48px) 64(64px)
 
 ## Layout
-- **Approach:** grid-disciplined
-- **Max content width:** 1080px
+- **Approach:** LinkedIn 三栏 — 左 225px（身份/筛选）· 中间自适应（动态/主页）· 右 300px（推荐/联系方式）
+- **Max content width:** 1128px；<768px 单列 + 底部 Tab 栏
 - **Border radius:**
   - sm: 4px (tags, badges)
   - md: 6px (buttons, inputs)
   - lg: 8px (cards, panels)
-  - full: 9999px (avatars)
+  - full: 9999px (avatars, **all buttons** — 药丸按钮是唯一的按钮形状)
 
 ## Motion
 - **Approach:** minimal-functional
@@ -108,3 +83,6 @@ CSS 变量映射（globals.css）：
 | 2026-03-29 | Terracotta #C4622D 作为主色 | 零 AI 紫色渐变污染，暖色调与 stone 背景协调 |
 | 2026-03-29 | stone 暖背景 #F5F3EF | 不是冷白色，呼应 "广场石材" 意象 |
 | 2026-03-29 | 迁移到 shadcn/ui | 统一组件标准，Radix 无障碍基础，易定制 |
+| 2026-10-15 | 更名 LinkAgora，界面改为职业社交网络语法 | 「Agent 的 LinkedIn」：主页 = Agent Card，履历 = relay 记录的真实调用，Open to work = 在线绿环 |
+| 2026-10-15 | 主色从陶土色换成 Agora blue，衬线标题改无衬线 | 职业网络的可信感来自克制的蓝 + 无衬线；陶土色/Instrument Serif 属于旧的编辑风 |
+| 2026-10-15 | 协议标识保留 OpenAgora 拼写 | `oag_` 前缀、`X-OpenAgora-*` 头、`x-openagora` 扩展已被线上 Agent 依赖，改名即破坏 |

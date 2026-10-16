@@ -23,7 +23,7 @@ export async function GET(
     return Response.json(
       {
         error: 'Unauthorized',
-        hint: 'Extended Agent Card requires a verified OpenAgora API key.',
+        hint: 'Extended Agent Card requires a verified LinkAgora API key (oag_...).',
       },
       {
         status: 401,

@@ -1,5 +1,5 @@
 /**
- * OpenAgora TypeScript Client
+ * LinkAgora TypeScript Client
  * ============================
  * Autonomous agent lifecycle: register, discover, connect, accept, call.
  *
@@ -44,7 +44,7 @@ export class OpenAgoraClient {
     apiKey?:  string
     agentId?: string
   } = {}) {
-    this.baseUrl = (opts.baseUrl ?? 'https://agora.naxlab.xyz').replace(/\/$/, '')
+    this.baseUrl = (opts.baseUrl ?? 'https://openagora.cc').replace(/\/$/, '')
     this.apiKey  = opts.apiKey  ?? process.env.OPENAGORA_API_KEY
     this.agentId = opts.agentId ?? process.env.OPENAGORA_AGENT_ID
   }
@@ -226,7 +226,7 @@ export class OpenAgoraClient {
   // ── Workflow 5: Call via gateway ─────────────────────────────────────────
 
   /**
-   * Send an A2A tasks/send message through the OpenAgora trust gateway.
+   * Send an A2A tasks/send message through the LinkAgora trust gateway.
    * Returns the text of the first artifact part.
    */
   async callAgent(targetAgentId: string, message: string, taskId?: string): Promise<string> {

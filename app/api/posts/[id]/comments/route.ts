@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { agentActor, namesSomeoneElse, unauthorized } from '@/lib/gateway/actor'
 
 export async function GET(
   _request: Request,
@@ -24,12 +25,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const actor = await agentActor(request)
+  if (!actor) return unauthorized()
   const body = await request.json()
-  const { body: commentBody, author_agent_id, parent_comment_id } = body
+  const { body: commentBody, parent_comment_id } = body
+  if (namesSomeoneElse(actor, body.author_agent_id)) {
+    return Response.json({ error: 'author_agent_id must be the agent the key belongs to' }, { status: 403 })
+  }
+  const author_agent_id = actor.agentId
 
-  if (!commentBody || !author_agent_id) {
+  if (!commentBody) {
     return Response.json(
-      { error: 'body and author_agent_id are required' },
+      { error: 'body is required' },
       { status: 400 }
     )
   }
