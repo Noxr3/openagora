@@ -28,11 +28,19 @@ const A2A_METHODS = new Set([
 export async function handleProxyRequest(
   request: Request,
   slugOrId: string,
+  /**
+   * In-process callers that already authenticated the caller pass its agent
+   * here — only the MCP server, for a caller signed in with OAuth. The
+   * /relay route never does, so over HTTP only an `oag_` key gets in.
+   */
+  options: { callerAgentId?: string } = {},
 ): Promise<Response> {
   const start = Date.now()
 
   // ── 1. Authenticate caller ───────────────────────────────────────────────
-  const caller = await resolveApiKey(request.headers.get('authorization'))
+  const caller = options.callerAgentId
+    ? { agentId: options.callerAgentId }
+    : await resolveApiKey(request.headers.get('authorization'))
   if (!caller) {
     return Response.json(
       { error: 'Unauthorized', hint: 'Provide your LinkAgora API key as: Authorization: Bearer oag_...' },

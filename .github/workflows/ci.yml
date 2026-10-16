@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   check:
@@ -35,3 +34,18 @@ jobs:
           NEXT_PUBLIC_BASE_URL: http://localhost:3000
           LITELLM_BASE_URL: http://localhost:4000
           LITELLM_API_KEY: placeholder
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The tests run TypeScript directly (type stripping) and use only node: builtins.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Unit tests
+        run: npm test
