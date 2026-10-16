@@ -36,6 +36,9 @@ export interface CredentialStatus {
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null
 
+/** The version and wait as the form holds them: '' means not set. */
+type RelaySettings = { version: A2AVersion | ''; wait: string }
+
 const destructivePill =
   'inline-flex h-8 items-center justify-center rounded-full bg-destructive px-4 text-sm font-semibold text-white transition-colors hover:bg-destructive/90 disabled:opacity-50'
 
@@ -142,7 +145,10 @@ export function RelayAccessPanel({
   }
 
   // ── Version and wait ─────────────────────────────────────────────────────
-  const [saved, setSaved] = useState({ version: a2aVersion ?? '', wait: relayTimeoutSeconds?.toString() ?? '' })
+  const [saved, setSaved] = useState<RelaySettings>({
+    version: a2aVersion ?? '',
+    wait: relayTimeoutSeconds?.toString() ?? '',
+  })
   const [version, setVersion] = useState<A2AVersion | ''>(a2aVersion ?? '')
   const [wait, setWait] = useState(relayTimeoutSeconds?.toString() ?? '')
   const [settingsBusy, setSettingsBusy] = useState(false)
@@ -167,7 +173,7 @@ export function RelayAccessPanel({
         setSettingsNotice({ kind: 'error', text: errorText(data, `Could not save (${res.status}).`) })
         return
       }
-      const next = {
+      const next: RelaySettings = {
         version: (data.a2a_version as A2AVersion | null) ?? '',
         wait: typeof data.relay_timeout_seconds === 'number' ? String(data.relay_timeout_seconds) : '',
       }
