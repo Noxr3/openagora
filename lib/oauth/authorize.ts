@@ -1,7 +1,7 @@
 import { BASE_URL } from '@/lib/brand'
 import { createClient } from '@/lib/supabase/server'
 import { clientRedirect, isValidCodeChallenge, matchRedirectUri, normalizeResource, SCOPE } from './rules'
-import { getClient, type OAuthClient } from './store'
+import { loadClient, type OAuthClient } from './store'
 
 /**
  * Checking an authorization request (/oauth/authorize). The consent page runs
@@ -45,14 +45,32 @@ export async function checkAuthorizationRequest(params: AuthorizeParams): Promis
   if (!clientId) {
     return { kind: 'fatal', title: 'Incomplete request', message: 'The app that sent you here did not say who it is (client_id is missing).' }
   }
-  const client = await getClient(clientId)
-  if (!client) {
+  const lookup = await loadClient(clientId)
+  if (lookup.client === null) {
+    const problem: string = lookup.problem
+    if (problem === 'unregistered') {
+      return {
+        kind: 'fatal',
+        title: 'Unknown app',
+        message: 'The app that sent you here is not registered with LinkAgora, or its registration expired. Remove the connector in the app and add it again.',
+      }
+    }
+    // An https client_id names the app's own metadata document; say whose and what went wrong.
+    let where = 'the address it gave'
+    try {
+      where = new URL(clientId).host
+    } catch {
+      // keep the generic wording
+    }
+    // Reasons come from several places; make each read as the end of this sentence.
+    const reason = problem.replace(/\.+$/, '').replace(/^([A-Z])(?=[a-z])/, (c) => c.toLowerCase())
     return {
       kind: 'fatal',
-      title: 'Unknown app',
-      message: 'The app that sent you here is not registered with LinkAgora, or its registration expired. Remove the connector in the app and add it again.',
+      title: 'Cannot read this app\'s details',
+      message: `The app identifies itself with a document on ${where}, and LinkAgora cannot use it: ${reason}.`,
     }
   }
+  const client = lookup.client
 
   const presented = single(params, 'redirect_uri')
   let redirectUri: string

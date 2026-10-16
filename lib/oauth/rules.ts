@@ -99,6 +99,7 @@ export function authorizationServerMetadata(base: string) {
     revocation_endpoint_auth_methods_supported: [...AUTH_METHODS],
     scopes_supported: [SCOPE],
     authorization_response_iss_parameter_supported: true,
+    client_id_metadata_document_supported: true,
     service_documentation: `${issuer}/docs/mcp`,
   }
 }
@@ -222,7 +223,7 @@ export function s256(verifier: string): string {
   return createHash('sha256').update(verifier, 'ascii').digest('base64url')
 }
 
-// ─── Client registration (RFC 7591) ─────────────────────────────────────────
+// ─── Clients: registration (RFC 7591) and metadata documents ────────────────
 
 export type ClientRegistration = {
   redirect_uris: string[]
@@ -237,7 +238,8 @@ export type ClientRegistration = {
   application_type?: 'web' | 'native'
 }
 
-type Parsed = { ok: true; value: ClientRegistration } | { ok: false; error: 'invalid_redirect_uri' | 'invalid_client_metadata'; description: string }
+type ClientError = { ok: false; error: 'invalid_redirect_uri' | 'invalid_client_metadata'; description: string }
+type Parsed = { ok: true; value: ClientRegistration } | ClientError
 
 function cleanText(value: unknown, max: number): string | undefined {
   if (typeof value !== 'string') return undefined
@@ -246,16 +248,12 @@ function cleanText(value: unknown, max: number): string | undefined {
 }
 
 /**
- * A registration request body → what this server will store and echo back,
- * or the RFC 7591 error. Unknown fields are dropped; a missing
- * token_endpoint_auth_method means client_secret_basic, as RFC 7591 §2 says.
+ * What both ways of naming a client have in common: redirect URIs, grant and
+ * response types, display fields. Grant and response types this server does
+ * not use are dropped rather than refused (VS Code's metadata document lists
+ * the device-code grant); authorization_code and code must be there.
  */
-export function parseClientRegistration(body: unknown): Parsed {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return { ok: false, error: 'invalid_client_metadata', description: 'The body must be a JSON object.' }
-  }
-  const input = body as Record<string, unknown>
-
+function clientFields(input: Record<string, unknown>): { ok: true; value: Omit<ClientRegistration, 'token_endpoint_auth_method'> } | ClientError {
   const uris = input.redirect_uris
   if (!Array.isArray(uris) || uris.length === 0) {
     return { ok: false, error: 'invalid_redirect_uri', description: 'redirect_uris must be a non-empty array.' }
@@ -266,23 +264,13 @@ export function parseClientRegistration(body: unknown): Parsed {
     if (problem) return { ok: false, error: 'invalid_redirect_uri', description: `redirect_uri ${JSON.stringify(String(uri).slice(0, 200))} ${problem}.` }
   }
 
-  const method = input.token_endpoint_auth_method ?? 'client_secret_basic'
-  if (!AUTH_METHODS.includes(method as AuthMethod)) {
-    return { ok: false, error: 'invalid_client_metadata', description: `token_endpoint_auth_method must be one of ${AUTH_METHODS.join(', ')}.` }
-  }
-
   const grantTypes = input.grant_types ?? ['authorization_code', 'refresh_token']
-  if (
-    !Array.isArray(grantTypes) ||
-    !grantTypes.includes('authorization_code') ||
-    grantTypes.some((g) => g !== 'authorization_code' && g !== 'refresh_token')
-  ) {
-    return { ok: false, error: 'invalid_client_metadata', description: 'grant_types must include authorization_code and may add refresh_token; nothing else is supported.' }
+  if (!Array.isArray(grantTypes) || !grantTypes.includes('authorization_code')) {
+    return { ok: false, error: 'invalid_client_metadata', description: 'grant_types must include authorization_code.' }
   }
-
   const responseTypes = input.response_types ?? ['code']
-  if (!Array.isArray(responseTypes) || responseTypes.length !== 1 || responseTypes[0] !== 'code') {
-    return { ok: false, error: 'invalid_client_metadata', description: 'response_types must be ["code"].' }
+  if (!Array.isArray(responseTypes) || !responseTypes.includes('code')) {
+    return { ok: false, error: 'invalid_client_metadata', description: 'response_types must include "code".' }
   }
 
   const appType = input.application_type
@@ -300,21 +288,126 @@ export function parseClientRegistration(body: unknown): Parsed {
     }
   }
 
+  const softwareId = cleanText(input.software_id, 200)
+  const softwareVersion = cleanText(input.software_version, 100)
   return {
     ok: true,
     value: {
       redirect_uris: uris as string[],
-      token_endpoint_auth_method: method as AuthMethod,
-      grant_types: [...new Set(grantTypes as string[])],
+      // Refresh tokens are always issued, so say so.
+      grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       client_name: cleanText(input.client_name, 100) ?? 'Unnamed app',
       ...(clientUri ? { client_uri: clientUri } : {}),
       scope: SCOPE,
-      ...(cleanText(input.software_id, 200) ? { software_id: cleanText(input.software_id, 200) } : {}),
-      ...(cleanText(input.software_version, 100) ? { software_version: cleanText(input.software_version, 100) } : {}),
+      ...(softwareId ? { software_id: softwareId } : {}),
+      ...(softwareVersion ? { software_version: softwareVersion } : {}),
       ...(appType ? { application_type: appType as 'web' | 'native' } : {}),
     },
   }
+}
+
+/**
+ * A registration request body → what this server will store and echo back,
+ * or the RFC 7591 error. Unknown fields are dropped; a missing
+ * token_endpoint_auth_method means client_secret_basic, as RFC 7591 §2 says.
+ */
+export function parseClientRegistration(body: unknown): Parsed {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { ok: false, error: 'invalid_client_metadata', description: 'The body must be a JSON object.' }
+  }
+  const input = body as Record<string, unknown>
+  const fields = clientFields(input)
+  if (!fields.ok) return fields
+
+  const method = input.token_endpoint_auth_method ?? 'client_secret_basic'
+  if (!AUTH_METHODS.includes(method as AuthMethod)) {
+    return { ok: false, error: 'invalid_client_metadata', description: `token_endpoint_auth_method must be one of ${AUTH_METHODS.join(', ')}.` }
+  }
+  return { ok: true, value: { ...fields.value, token_endpoint_auth_method: method as AuthMethod } }
+}
+
+/**
+ * Client ID Metadata Documents (draft-ietf-oauth-client-id-metadata-document-00,
+ * preferred by the MCP spec over registration): the client_id is an https URL
+ * and the client's metadata is the JSON document at it. Claude Code and VS
+ * Code publish one.
+ */
+export function isMetadataDocumentClientId(clientId: string): boolean {
+  return clientId.startsWith('https://')
+}
+
+/** Why a client_id cannot be a metadata document URL (draft §3), or null. */
+export function clientIdUrlProblem(value: string): string | null {
+  if (value.length > 2000) return 'is longer than 2000 characters'
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return 'is not a URL'
+  }
+  if (url.protocol !== 'https:') return 'must use https'
+  if (url.username || url.password) return 'must not contain a user name or password'
+  if (url.hash || value.includes('#')) return 'must not contain a fragment'
+  if (url.pathname === '/' || url.pathname === '') return 'must have a path'
+  // Dot segments are checked on the raw string: URL() would quietly remove them.
+  const rawPath = value.slice(value.indexOf('//') + 2).replace(/^[^/?]*/, '').split('?')[0]
+  if (rawPath.split('/').some((segment) => segment === '.' || segment === '..' || /^%2e(%2e)?$/i.test(segment))) {
+    return 'must not contain . or .. path segments'
+  }
+  // The client_id is compared to the document's own client_id as a plain string, so it must already be canonical.
+  if (url.toString() !== value) return 'is not in canonical form'
+  return null
+}
+
+/**
+ * The document fetched from a client_id URL → the client it describes, or
+ * why it cannot be used. Its client_id must equal the URL exactly; it is a
+ * public client (no shared secrets in a public document), so PKCE is what
+ * binds the code to it.
+ */
+export function parseClientMetadataDocument(clientId: string, doc: unknown): Parsed {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+    return { ok: false, error: 'invalid_client_metadata', description: 'The client metadata document is not a JSON object.' }
+  }
+  const input = doc as Record<string, unknown>
+  if (input.client_id !== clientId) {
+    return { ok: false, error: 'invalid_client_metadata', description: 'The document\'s client_id is not exactly the URL it was fetched from.' }
+  }
+  if ('client_secret' in input || 'client_secret_expires_at' in input) {
+    return { ok: false, error: 'invalid_client_metadata', description: 'A client metadata document must not carry a client_secret.' }
+  }
+  const method = input.token_endpoint_auth_method ?? 'none'
+  if (method !== 'none') {
+    return {
+      ok: false,
+      error: 'invalid_client_metadata',
+      description: `token_endpoint_auth_method ${JSON.stringify(String(method)).slice(0, 60)} is not supported for metadata documents; use "none" (PKCE).`,
+    }
+  }
+  if (!cleanText(input.client_name, 100)) {
+    return { ok: false, error: 'invalid_client_metadata', description: 'The client metadata document has no client_name.' }
+  }
+  const fields = clientFields(input)
+  if (!fields.ok) return fields
+  return { ok: true, value: { ...fields.value, token_endpoint_auth_method: 'none' } }
+}
+
+/**
+ * How long a fetched metadata document may be reused, from its Cache-Control
+ * (draft §4.4: respect it; the server may set its own bounds). no-store,
+ * no-cache and private mean every authorization fetches it again.
+ */
+export function metadataCacheSeconds(cacheControl: string | null | undefined): number {
+  const DEFAULT = 300
+  const MAX = 3600
+  if (!cacheControl) return DEFAULT
+  const directives = cacheControl.toLowerCase().split(',').map((d) => d.trim())
+  if (directives.some((d) => d === 'no-store' || d === 'no-cache' || d === 'private')) return 0
+  const maxAge = directives.find((d) => d.startsWith('max-age='))
+  if (!maxAge) return DEFAULT
+  const seconds = Number(maxAge.slice('max-age='.length))
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(Math.floor(seconds), MAX) : 0
 }
 
 // ─── Small helpers ──────────────────────────────────────────────────────────

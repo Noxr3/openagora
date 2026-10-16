@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { fetchClientMetadataDocument } from './client-metadata'
 import {
   ACCESS_TOKEN_PREFIX,
   ACCESS_TOKEN_SECONDS,
@@ -8,6 +9,9 @@ import {
   CODE_SECONDS,
   REFRESH_TOKEN_PREFIX,
   REFRESH_TOKEN_SECONDS,
+  clientIdUrlProblem,
+  isMetadataDocumentClientId,
+  parseClientMetadataDocument,
   type AuthMethod,
   type ClientRegistration,
 } from './rules'
@@ -36,14 +40,92 @@ export type OAuthClient = {
   redirect_uris: string[]
 }
 
+/**
+ * A client as stored: registered (oagc_…), or a metadata-document client
+ * (an https client_id) that someone approved at least once. The token and
+ * revocation endpoints use this; they never fetch.
+ */
 export async function getClient(clientId: string): Promise<OAuthClient | null> {
-  if (!clientId || clientId.length > 100) return null
+  if (!clientId || clientId.length > 2000) return null
   const { data } = await supabaseAdmin
     .from('oauth_clients')
     .select('id, secret_hash, token_endpoint_auth_method, client_name, client_uri, redirect_uris')
     .eq('id', clientId)
     .maybeSingle()
   return (data as OAuthClient | null) ?? null
+}
+
+// Fetched metadata documents, per process, for as long as their Cache-Control allows.
+const documentClients = new Map<string, { client: OAuthClient; until: number }>()
+
+/** `problem` is 'unregistered' for an unknown registered client_id, otherwise why a metadata document cannot be used. */
+export type ClientLookup = { client: OAuthClient; problem?: undefined } | { client: null; problem: string }
+
+/**
+ * The client behind a client_id at the authorization step. A registered
+ * client comes from the database; an https client_id is a Client ID Metadata
+ * Document, fetched now (or reused while its cache headers allow) and checked
+ * — a document that cannot be fetched or does not check out stops the
+ * request (draft §4.3).
+ */
+export async function loadClient(clientId: string): Promise<ClientLookup> {
+  if (!isMetadataDocumentClientId(clientId)) {
+    const client = await getClient(clientId)
+    return client ? { client } : { client: null, problem: 'unregistered' }
+  }
+
+  const urlProblem = clientIdUrlProblem(clientId)
+  if (urlProblem) return { client: null, problem: `the client_id ${urlProblem}` }
+
+  const cached = documentClients.get(clientId)
+  if (cached && cached.until > Date.now()) return { client: cached.client }
+
+  let fetched: Awaited<ReturnType<typeof fetchClientMetadataDocument>>
+  try {
+    fetched = await fetchClientMetadataDocument(clientId)
+  } catch (error) {
+    return { client: null, problem: error instanceof Error ? error.message : 'it could not be fetched' }
+  }
+  const parsed = parseClientMetadataDocument(clientId, fetched.json)
+  if (!parsed.ok) return { client: null, problem: parsed.description }
+
+  const client: OAuthClient = {
+    id: clientId,
+    secret_hash: null,
+    token_endpoint_auth_method: 'none',
+    client_name: parsed.value.client_name,
+    client_uri: parsed.value.client_uri ?? null,
+    redirect_uris: parsed.value.redirect_uris,
+  }
+  if (fetched.cacheSeconds > 0) {
+    if (documentClients.size >= 500) documentClients.delete(documentClients.keys().next().value as string)
+    documentClients.set(clientId, { client, until: Date.now() + fetched.cacheSeconds * 1000 })
+  } else {
+    documentClients.delete(clientId)
+  }
+  return { client }
+}
+
+/**
+ * Codes and grants point at an oauth_clients row, so a metadata-document
+ * client gets one — a snapshot of the document as it was when the account
+ * approved it — the first time it is approved, refreshed each time after.
+ */
+async function rememberDocumentClient(client: OAuthClient): Promise<boolean> {
+  const { error } = await supabaseAdmin.from('oauth_clients').upsert(
+    {
+      id: client.id,
+      secret_hash: null,
+      token_endpoint_auth_method: 'none',
+      client_name: client.client_name,
+      client_uri: client.client_uri,
+      redirect_uris: client.redirect_uris,
+      metadata: { client_id_metadata_document: true },
+    },
+    { onConflict: 'id' },
+  )
+  if (error) console.error('[oauth] saving a metadata-document client failed:', error.message)
+  return !error
 }
 
 /** Constant-time check of a presented client secret. */
@@ -112,7 +194,7 @@ export async function eligibleAgents(userId: string) {
 }
 
 export async function issueCode(input: {
-  clientId: string
+  client: OAuthClient
   userId: string
   agentId: string
   redirectUri: string
@@ -120,10 +202,11 @@ export async function issueCode(input: {
   scope: string
   resource: string
 }): Promise<string | null> {
+  if (isMetadataDocumentClientId(input.client.id) && !(await rememberDocumentClient(input.client))) return null
   const code = randomBytes(32).toString('base64url')
   const { error } = await supabaseAdmin.from('oauth_codes').insert({
     code_hash: sha256(code),
-    client_id: input.clientId,
+    client_id: input.client.id,
     user_id: input.userId,
     agent_id: input.agentId,
     redirect_uri: input.redirectUri,

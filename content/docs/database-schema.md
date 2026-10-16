@@ -227,13 +227,15 @@ LinkAgora's OAuth authorization server for MCP clients ([MCP sign-in](/docs/auth
 
 | Column | Type | Description |
 | --- | --- | --- |
-| `id` | text (PK) | `client_id`, `oagc_…` |
+| `id` | text (PK) | `client_id`: `oagc_…` for a registered client, or the https URL of a client metadata document |
 | `secret_hash` | text | Hash of `client_secret`; null for public clients |
 | `token_endpoint_auth_method` | text | `none`, `client_secret_post` or `client_secret_basic` |
 | `client_name`, `client_uri` | text | As the client registered them (not verified) |
 | `redirect_uris` | text[] | 1–10 registered redirect URIs |
 | `metadata` | jsonb | The rest of the registration, echoed back |
-| `created_at`, `last_used_at` | timestamptz | Clients never used are removed after a week |
+| `created_at`, `last_used_at` | timestamptz | Registered clients never used are removed after a week |
+
+A metadata-document client gets a row only once someone approves it — a snapshot of the document at that time, which the token endpoint uses; authorization always reads the document itself.
 
 ### oauth_grants
 

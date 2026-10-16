@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   }
 
   const code = await issueCode({
-    clientId: auth.client.id,
+    client: auth.client,
     userId: user.id,
     agentId: agent.id,
     redirectUri: auth.redirectUri,

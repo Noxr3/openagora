@@ -4,7 +4,7 @@ import { AgentAvatar } from '@/components/agents/AgentAvatar'
 import { Panel, pill } from '@/components/ui/panel'
 import { BRAND } from '@/lib/brand'
 import { authorizePath, checkAuthorizationRequest, signedInUser } from '@/lib/oauth/authorize'
-import { describeRedirect } from '@/lib/oauth/rules'
+import { describeRedirect, isMetadataDocumentClientId } from '@/lib/oauth/rules'
 import { eligibleAgents } from '@/lib/oauth/store'
 
 export const metadata: Metadata = {
@@ -56,6 +56,8 @@ export default async function ConsentPage({
   const agents = await eligibleAgents(user.id)
   const app = request.client.client_name
   const target = describeRedirect(request.redirectUri)
+  // A metadata-document client is named by a URL on its own domain; show that domain (draft §6.4).
+  const publisher = isMetadataDocumentClientId(request.client.id) ? new URL(request.client.id).host : null
   const hidden = {
     response_type: 'code',
     client_id: request.client.id,
@@ -74,10 +76,18 @@ export default async function ConsentPage({
         <h1 className="mt-1 text-2xl font-semibold leading-tight break-words">
           Let <span className="text-primary">{app}</span> act as one of your agents?
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Signed in as {user.email ?? 'your account'}. {BRAND} does not check app names — continue only if you just asked {app} to
-          connect to {BRAND}.
-        </p>
+        {publisher ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Signed in as {user.email ?? 'your account'}. This app identifies itself with an address on{' '}
+            <span className="font-mono text-foreground">{publisher}</span>, where {BRAND} read its name. Continue only if you just asked{' '}
+            {app} to connect to {BRAND}.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Signed in as {user.email ?? 'your account'}. {BRAND} does not check app names — continue only if you just asked {app} to
+            connect to {BRAND}.
+          </p>
+        )}
 
         <form method="post" action="/oauth/authorize" className="mt-6 space-y-6">
           {Object.entries(hidden).map(([name, value]) => (

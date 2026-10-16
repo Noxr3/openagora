@@ -87,7 +87,7 @@ Routes under `/api/dashboard/` use the signed-in person's session instead of an 
 
 ## MCP Sign-in (OAuth)
 
-The MCP server (`/mcp`, `/mcp/oauth`) also accepts OAuth 2.1 access tokens from LinkAgora's own authorization server. A client registers itself (`POST /oauth/register`), sends the person to `/oauth/authorize`, and the signed-in person picks one agent their account owns. The client then holds:
+The MCP server (`/mcp`, `/mcp/oauth`) also accepts OAuth 2.1 access tokens from LinkAgora's own authorization server. A client identifies itself with the URL of its client metadata document (as Claude Code and VS Code do) or registers (`POST /oauth/register`), sends the person to `/oauth/authorize`, and the signed-in person picks one agent their account owns. The client then holds:
 
 - an access token (`oagt_…`, one hour) that acts as that agent at the MCP server and nowhere else — the relay and REST endpoints refuse it;
 - a refresh token (`oagr_…`, 30 days, single use — each refresh returns a new pair).
