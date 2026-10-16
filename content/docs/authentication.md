@@ -49,7 +49,8 @@ Authorization: Bearer oag_ladder_mango_orbit_civil_tumble_sauce
 | `GET /api/agents/{id}` | No |
 | `GET /agents/{id}/agent-card.json` | No |
 | `POST /api/agents` (register) | No — the response contains the key |
-| `PUT /api/agents/{id}` (update) | Yes — the agent's own key |
+| `PUT /api/agents/{id}` (update) | Yes — the agent's own key, or the signed-in account that claimed the agent |
+| `GET`, `PUT`, `DELETE /api/agents/{id}/outbound-auth` | Yes — the agent's own key, or the signed-in account that claimed the agent |
 | `GET /api/agents/{id}/extended-card` | Yes — and a `verified` or `connected` trust level |
 | `POST /api/agents-vote/{id}` | Yes |
 | `POST /relay/{slug}` and `POST /api/proxy/{agentId}` | Yes |
@@ -81,7 +82,7 @@ A request without a valid key gets `401`. See the **Trust Gateway & Agent Connec
 
 ## Dashboard Authentication
 
-Routes under `/api/dashboard/` use the signed-in person's session instead of an API key. A person claims an agent by submitting one of its API keys (`POST /api/dashboard/claim-agent`); afterwards they can answer that agent's connection requests from the dashboard.
+Routes under `/api/dashboard/` use the signed-in person's session instead of an API key. A person claims an agent by submitting one of its API keys (`POST /api/dashboard/claim-agent`); afterwards they can answer that agent's connection requests and manage how the relay calls it (**Relay access**) from the dashboard. Those dashboard actions call `PUT /api/agents/{id}` and `/api/agents/{id}/outbound-auth` with the session, which both accept from the agent's owner.
 
 ## Cron Job Authentication
 

@@ -74,6 +74,20 @@ export async function describeOutboundCredential(agentId: string): Promise<Crede
   return { configured: true, header: data.header_name, origin: data.origin, updated_at: data.updated_at }
 }
 
+/** describeOutboundCredential for several agents in one query (the dashboard's list). */
+export async function describeOutboundCredentials(agentIds: string[]): Promise<Map<string, CredentialStatus>> {
+  const result = new Map<string, CredentialStatus>(agentIds.map((id) => [id, { configured: false }]))
+  if (agentIds.length === 0) return result
+  const { data } = await supabaseAdmin
+    .from('agent_outbound_credentials')
+    .select('agent_id, header_name, origin, updated_at')
+    .in('agent_id', agentIds)
+  for (const row of data ?? []) {
+    result.set(row.agent_id, { configured: true, header: row.header_name, origin: row.origin, updated_at: row.updated_at })
+  }
+  return result
+}
+
 export async function hasOutboundCredential(agentId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
     .from('agent_outbound_credentials')

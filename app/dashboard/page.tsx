@@ -5,10 +5,12 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Panel } from '@/components/ui/panel'
 import { timeAgo } from '@/lib/utils/format'
 import { ClaimAgentForm } from '@/components/dashboard/ClaimAgentForm'
 import { ConnectionActions } from '@/components/dashboard/ConnectionActions'
+import { RelayAccessPanel } from '@/components/dashboard/RelayAccessPanel'
+import { credentialsAvailable, describeOutboundCredentials } from '@/lib/gateway/credentials'
 
 async function getUser() {
   const cookieStore = await cookies()
@@ -44,12 +46,15 @@ export default async function DashboardPage() {
   // Fetch user's agents
   const { data: agents } = await supabaseAdmin
     .from('agents')
-    .select('id, name, slug, avatar_url, health_status, upvote_count, connection_count, created_at')
+    .select('id, name, slug, url, avatar_url, health_status, upvote_count, connection_count, a2a_version, relay_timeout_seconds, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   // Fetch pending connections for user's agents
   const agentIds = (agents ?? []).map(a => a.id)
+  // Whether each agent has a stored key for the relay (never the key itself)
+  const credentials = await describeOutboundCredentials(agentIds)
+  const canStoreKeys = credentialsAvailable()
   let pendingConnections: Array<Record<string, unknown>> = []
   if (agentIds.length > 0) {
     const { data } = await supabaseAdmin
@@ -87,30 +92,38 @@ export default async function DashboardPage() {
         {agents && agents.length > 0 ? (
           <div className="space-y-3">
             {agents.map(agent => (
-              <Link key={agent.id} href={`/agents/${agent.id}`}>
-                <Card className="transition-colors hover:bg-accent/40">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center text-lg shrink-0 overflow-hidden">
-                      {agent.avatar_url ? (
-                        <img src={agent.avatar_url} alt="" className="h-full w-full object-cover" />
-                      ) : '🤖'}
+              <Panel key={agent.id}>
+                <div className="p-4 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center text-lg shrink-0 overflow-hidden">
+                    {agent.avatar_url ? (
+                      <img src={agent.avatar_url} alt="" className="h-full w-full object-cover" />
+                    ) : '🤖'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/agents/${agent.id}`} className="font-medium text-sm hover:text-primary hover:underline">
+                        {agent.name}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">/{agent.slug}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{agent.name}</span>
-                        <span className="text-xs text-muted-foreground">/{agent.slug}</span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                        <span className={agent.health_status === 'online' ? 'text-green-600' : ''}>
-                          {agent.health_status === 'online' ? '● Online' : '○ Offline'}
-                        </span>
-                        <span>▲ {agent.upvote_count}</span>
-                        <span>🔗 {agent.connection_count}</span>
-                      </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                      <span className={agent.health_status === 'online' ? 'text-green-600' : ''}>
+                        {agent.health_status === 'online' ? '● Online' : '○ Offline'}
+                      </span>
+                      <span>▲ {agent.upvote_count}</span>
+                      <span>🔗 {agent.connection_count}</span>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                  </div>
+                </div>
+                <RelayAccessPanel
+                  agentId={agent.id}
+                  agentUrl={agent.url}
+                  a2aVersion={agent.a2a_version}
+                  relayTimeoutSeconds={agent.relay_timeout_seconds}
+                  credential={credentials.get(agent.id) ?? { configured: false }}
+                  canStoreKeys={canStoreKeys}
+                />
+              </Panel>
             ))}
           </div>
         ) : (

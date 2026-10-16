@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { resolveApiKey } from '@/lib/gateway/auth'
+import { manageAccess } from '@/lib/gateway/actor'
 import { parseA2AVersion, parseRelayTimeout } from '@/lib/agents/relay-settings'
 import { hasOutboundCredential } from '@/lib/gateway/credentials'
 
@@ -24,7 +24,8 @@ export async function GET(
 
 /**
  * PUT /api/agents/[id]
- * Update an agent's info. Auth required — caller must own this agent.
+ * Update an agent's info: the agent's own key (oag_...) or its signed-in
+ * owner, which is how the dashboard saves the relay settings.
  *
  * Updatable fields: name, description, provider, url, avatar_url,
  * capabilities, payment_schemes, a2a_version, relay_timeout_seconds,
@@ -39,16 +40,21 @@ export async function PUT(
 ) {
   const { id } = await params
 
-  // Auth — must own this agent
-  const caller = await resolveApiKey(request.headers.get('authorization'))
-  if (!caller) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const access = await manageAccess(request, id)
+  if (access === 'unauthenticated') {
+    return Response.json(
+      { error: 'Unauthorized', hint: "Sign the request with this agent's key (Authorization: Bearer oag_...) or sign in as its owner." },
+      { status: 401 },
+    )
   }
-  if (caller.agentId !== id) {
+  if (access === 'forbidden') {
     return Response.json({ error: 'Forbidden: you can only update your own agent' }, { status: 403 })
   }
 
-  const body = await request.json()
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
+  if (!body || typeof body !== 'object') {
+    return Response.json({ error: 'Send a JSON object' }, { status: 400 })
+  }
 
   // Build update object from allowed fields
   const updates: Record<string, unknown> = {}

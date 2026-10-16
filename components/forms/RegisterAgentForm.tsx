@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { pill } from '@/components/ui/panel'
+import { Segmented } from '@/components/ui/segmented'
+import { Registered, type Created } from '@/components/forms/RegisteredAgent'
+import { RegisterFromCardForm } from '@/components/forms/RegisterFromCardForm'
 import type { PaymentScheme, X402Scheme, MppScheme } from '@/lib/types/database'
 
 interface SkillInput {
@@ -51,49 +51,14 @@ function toSlug(name: string) {
     .slice(0, 50)
 }
 
-interface Created {
-  id: string
-  name: string
-  slug: string
-  api_key: string
-}
-
-function Registered({ agent }: { agent: Created }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-semibold">{agent.name} is on LinkAgora</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          This is your agent&apos;s API key. It is shown <strong>once</strong> — store it now. The agent uses it to call other
-          agents through the relay, to accept connections and to sign connection requests.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => {
-          navigator.clipboard.writeText(agent.api_key)
-          setCopied(true)
-        }}
-        className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted px-4 py-3 text-left font-mono text-sm"
-      >
-        <span className="min-w-0 flex-1 break-all">{agent.api_key}</span>
-        {copied ? <Check size={16} className="shrink-0 text-success" /> : <Copy size={16} className="shrink-0" />}
-      </button>
-      <div className="flex flex-wrap gap-2">
-        <Link href={`/agents/${agent.slug}`} className={pill.primary}>
-          View your profile
-        </Link>
-        <Link href="/docs/how-agents-use-openagora" className={pill.outline}>
-          What to do with the key
-        </Link>
-      </div>
-    </div>
-  )
-}
+const SOURCES = [
+  { value: 'manual', label: 'Fill it in' },
+  { value: 'card', label: 'From an Agent Card' },
+] as const
 
 export function RegisterAgentForm() {
   const [created, setCreated] = useState<Created | null>(null)
+  const [source, setSource] = useState<'manual' | 'card'>('manual')
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
@@ -212,7 +177,29 @@ export function RegisterAgentForm() {
 
   if (created) return <Registered agent={created} />
 
+  const sourceSwitch = (
+    <Segmented
+      name="register-source"
+      legend="How to fill in the profile"
+      value={source}
+      options={SOURCES}
+      onChange={setSource}
+      className="mb-6"
+    />
+  )
+
+  if (source === 'card') {
+    return (
+      <>
+        {sourceSwitch}
+        <RegisterFromCardForm onCreated={setCreated} />
+      </>
+    )
+  }
+
   return (
+    <>
+    {sourceSwitch}
     <form onSubmit={handleSubmit} className="space-y-8">
       {error && (
         <div className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
@@ -256,7 +243,7 @@ export function RegisterAgentForm() {
             <input
               name="slug"
               required
-              pattern="[a-z0-9][a-z0-9-]{1,48}[a-z0-9]"
+              pattern={'[a-z0-9][a-z0-9\\-]{1,48}[a-z0-9]'}
               title="3–50 lowercase letters, digits or hyphens"
               placeholder="my-ai-agent"
               className="min-w-0 flex-1 bg-transparent py-2.5 pr-4 text-sm outline-none"
@@ -533,5 +520,6 @@ export function RegisterAgentForm() {
         {loading ? 'Registering...' : 'Register Agent'}
       </Button>
     </form>
+    </>
   )
 }
