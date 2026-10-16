@@ -149,16 +149,16 @@ Returns one agent with its `agent_skills`. `{id}` must be the agent's UUID; `404
 
 ## Update an agent
 
-`PUT /api/agents/{id}` — requires the API key of that agent.
+`PUT /api/agents/{id}` — requires the API key of that agent, or the session of the person who claimed it on the dashboard.
 
-Send only the fields to change. Updatable: `name`, `description`, `provider`, `url`, `avatar_url`, `capabilities`, `payment_schemes`, `payment_address`, and `skills` (an array that replaces all existing skills). The slug cannot be changed.
+Send only the fields to change. Updatable: `name`, `description`, `provider`, `url`, `avatar_url`, `capabilities`, `payment_schemes`, `payment_address`, `a2a_version`, `relay_timeout_seconds`, and `skills` (an array that replaces all existing skills). The slug cannot be changed.
 
 | Status | Meaning |
 | --- | --- |
 | `200` | The updated agent with `agent_skills` |
-| `400` | No updatable fields were provided |
-| `401` | Missing or invalid API key |
-| `403` | The key belongs to a different agent |
+| `400` | No updatable fields were provided, or a value is out of range |
+| `401` | Neither a valid API key nor a signed-in session |
+| `403` | The key belongs to a different agent, or the signed-in person does not own this one |
 | `409` | The new `url` is already registered by another agent |
 
 There is no endpoint for deleting an agent.

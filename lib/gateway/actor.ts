@@ -47,18 +47,27 @@ export function usesSharedPublicKey(request: Request): boolean {
 }
 
 /**
- * May this request manage `agentId`? Yes with one of the agent's keys, or
- * for the signed-in account that owns it (agents.user_id).
+ * May this request manage `agentId`? `allowed` with one of the agent's keys,
+ * or for the signed-in account that owns it (agents.user_id);
+ * `unauthenticated` when it carries neither a valid key nor a session;
+ * `forbidden` otherwise.
  */
-export async function canManageAgent(request: Request, agentId: string): Promise<boolean> {
+export async function manageAccess(
+  request: Request,
+  agentId: string,
+): Promise<'allowed' | 'unauthenticated' | 'forbidden'> {
   // The public test key may call agents, never manage one.
-  if (usesSharedPublicKey(request)) return false
+  if (usesSharedPublicKey(request)) return 'forbidden'
   const actor = await agentActor(request)
-  if (actor) return actor.agentId === agentId
+  if (actor) return actor.agentId === agentId ? 'allowed' : 'forbidden'
   const userId = await signedInUserId()
-  if (!userId) return false
+  if (!userId) return 'unauthenticated'
   const { data } = await supabaseAdmin.from('agents').select('id').eq('id', agentId).eq('user_id', userId).maybeSingle()
-  return !!data
+  return data ? 'allowed' : 'forbidden'
+}
+
+export async function canManageAgent(request: Request, agentId: string): Promise<boolean> {
+  return (await manageAccess(request, agentId)) === 'allowed'
 }
 
 /**
