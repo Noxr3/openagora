@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { BookOpen, Home, MessagesSquare, SquarePlus, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -34,7 +35,14 @@ function isActive(pathname: string, href: string) {
 export function NavItem({ href, label, icon, external, compact }: Props) {
   const Icon = ICONS[icon]
   const pathname = usePathname()
-  const active = !external && isActive(pathname, href)
+  // A statically prerendered page (the home page) is rendered with the
+  // pathname Next prerendered it under, which with our rewrites and
+  // middleware need not be the browser's. Render no active item on the
+  // server and light it after mount, so hydration always matches.
+  // https://nextjs.org/docs/app/api-reference/functions/use-pathname#avoid-hydration-mismatch-with-rewrites
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const active = mounted && !external && isActive(pathname, href)
   const className = cn(
     'group relative flex flex-col items-center justify-center gap-0.5 text-muted-foreground transition-colors hover:text-foreground',
     compact ? 'h-14 flex-1 text-[11px]' : 'h-[52px] min-w-[72px] px-2 text-xs',
